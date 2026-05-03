@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐟 AquaBit - Pecera Virtual 16bit</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  :root {
+    --pixel: 4px;
+    --bg: #0a0a1a;
+    --water-deep: #001a3a;
+    --water-mid: #003060;
+    --water-light: #0050a0;
+    --water-surface: #0080ff;
+    --gold: #ffd700;
+    --green: #00ff44;
+    --red: #ff2244;
+    --ui-bg: #0d1b2a;
+    --ui-border: #2255aa;
+    --panel-bg: #050e1a;
+    --text: #88ccff;
+    --white: #e0f0ff;
+    --pixel-shadow: 4px 4px 0px #000;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; image-rendering: pixelated; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Press Start 2P', monospace;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* TITLE */
+  .title-bar {
+    width: 100%;
+    background: #000;
+    border-bottom: 4px solid var(--ui-border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+  }
+  .title-bar h1 {
+    font-size: 14px;
+    color: var(--gold);
+    text-shadow: 3px 3px 0 #8b5e00, 6px 6px 0 #000;
+    animation: titlePulse 2s infinite;
+  }
+  @keyframes titlePulse {
+    0%,100% { color: var(--gold); }
+    50% { color: #fffaaa; }
+  }
+  .coins-display {
+    font-size: 9px;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .coin-icon { display: inline-block; width: 12px; height: 12px; background: var(--gold); border-radius: 50%; border: 2px solid #8b5e00; animation: coinSpin 1s infinite; }
+  @keyframes coinSpin { 0%,100%{transform:scaleX(1)} 50%{transform:scaleX(0.3)} }
+
+  /* MAIN LAYOUT */
+  .game-wrapper {
+    display: flex;
+    gap: 12px;
+    padding: 16px;
+    width: 100%;
+    max-width: 1100px;
+    align-items: flex-start;
+  }
+
+  /* AQUARIUM */
+  .aquarium-container {
+    flex: 1;
+    position: relative;
+  }
+  .tank-frame {
+    border: 8px solid #334;
+    border-top: 12px solid #667;
+    border-bottom: 16px solid #223;
+    box-shadow: 0 0 0 4px #111, 0 0 30px rgba(0,100,255,0.3), inset 0 0 60px rgba(0,50,150,0.4);
+    position: relative;
+    overflow: hidden;
+    background: var(--water-deep);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 420px;
+    cursor: crosshair;
+  }
+
+  /* WATER SCAN LINE EFFECT */
+  .tank-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.08) 4px);
+    pointer-events: none;
+    z-index: 10;
+  }
+  .tank-frame::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 30px;
+    background: linear-gradient(to bottom, rgba(0,120,255,0.35), transparent);
+    pointer-events: none;
+    z-index: 11;
+    animation: surfaceShimmer 3s ease-in-out infinite;
+  }
+  @keyframes surfaceShimmer {
+    0%,100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  /* CONTROLS */
+  .action-bar {
+    display: flex;
+    gap: 6px;
+    padding: 8px 0;
+    flex-wrap: wrap;
+  }
+  .btn-pixel {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 7px;
+    padding: 8px 10px;
+    border: 3px solid;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.1s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .btn-pixel:active { transform: translate(2px,2px); }
+  .btn-feed { background: #1a3a00; color: #88ff44; border-color: #55aa00; box-shadow: 3px 3px 0 #002200; }
+  .btn-feed:hover { background: #2a5500; }
+  .btn-clean { background: #001a3a; color: #44aaff; border-color: #0055aa; box-shadow: 3px 3px 0 #000033; }
+  .btn-clean:hover { background: #002255; }
+  .btn-light { background: #1a1a00; color: #ffff44; border-color: #aaaa00; box-shadow: 3px 3px 0 #111100; }
+  .btn-light:hover { background: #2a2a00; }
+  .btn-shop { background: #1a0030; color: #cc44ff; border-color: #7700cc; box-shadow: 3px 3px 0 #110022; }
+  .btn-shop:hover { background: #2a0050; }
+
+  .status-bar {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 6px 0;
+  }
+  .stat-block {
+    flex: 1;
+    min-width: 120px;
+    background: var(--panel-bg);
+    border: 3px solid var(--ui-border);
+    padding: 6px 8px;
+  }
+  .stat-label { font-size: 6px; color: #6699cc; margin-bottom: 4px; }
+  .stat-bar-outer {
+    height: 10px;
+    background: #001a33;
+    border: 2px solid #003366;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-bar-inner {
+    height: 100%;
+    transition: width 0.5s, background-color 0.5s;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-bar-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.2) 0px, rgba(255,255,255,0.2) 4px, transparent 4px, transparent 8px);
+  }
+  .bar-food { background: #ff8800; }
+  .bar-clean { background: #00aaff; }
+  .bar-happy { background: #ff44aa; }
+
+  /* SIDE PANEL */
+  .side-panel {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .panel-box {
+    background: var(--panel-bg);
+    border: 3px solid var(--ui-border);
+    padding: 10px;
+  }
+  .panel-title {
+    font-size: 7px;
+    color: var(--gold);
+    border-bottom: 2px solid var(--ui-border);
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    text-shadow: 2px 2px 0 #000;
+  }
+  .fish-list-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 0;
+    border-bottom: 1px solid #112244;
+    font-size: 6px;
+    color: #99ccff;
+  }
+  .fish-list-item .emoji { font-size: 14px; }
+  .fish-health-dot { width: 6px; height: 6px; border-radius: 50%; margin-left: auto; }
+  .dot-healthy { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .dot-sick { background: var(--red); box-shadow: 0 0 4px var(--red); animation: blink 0.5s infinite; }
+  .dot-ok { background: #ffaa00; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .log-box {
+    max-height: 120px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-border) #000;
+  }
+  .log-entry {
+    font-size: 5.5px;
+    color: #5599cc;
+    padding: 2px 0;
+    border-bottom: 1px solid #0a1a2a;
+    animation: fadeIn 0.3s;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+  .log-time { color: #335577; }
+
+  /* SHOP MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .shop-modal {
+    background: #060f1d;
+    border: 4px solid var(--gold);
+    box-shadow: 8px 8px 0 #000, 0 0 40px rgba(255,215,0,0.2);
+    width: 600px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .shop-header {
+    background: #0d1f35;
+    border-bottom: 4px solid var(--gold);
+    padding: 14px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .shop-header h2 { font-size: 11px; color: var(--gold); text-shadow: 3px 3px 0 #000; }
+  .btn-close {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 9px;
+    background: #330000;
+    color: #ff4444;
+    border: 3px solid #880000;
+    padding: 6px 10px;
+    cursor: pointer;
+  }
+  .btn-close:hover { background: #550000; }
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+    gap: 12px;
+    padding: 16px;
+  }
+  .shop-card {
+    background: #0a1a2e;
+    border: 3px solid #1a3a6a;
+    padding: 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+    position: relative;
+  }
+  .shop-card:hover { border-color: var(--gold); transform: translate(-2px,-2px); }
+  .shop-card:active { transform: translate(0,0); }
+  .shop-card .fish-emoji { font-size: 36px; display: block; margin-bottom: 8px; filter: drop-shadow(0 0 8px rgba(0,150,255,0.5)); }
+  .shop-card .fish-name { font-size: 7px; color: var(--white); margin-bottom: 4px; }
+  .shop-card .fish-rarity {
+    font-size: 5.5px;
+    padding: 2px 6px;
+    display: inline-block;
+    margin-bottom: 6px;
+  }
+  .rarity-common { background: #223; color: #88aacc; border: 2px solid #446; }
+  .rarity-rare { background: #002244; color: #44aaff; border: 2px solid #0066cc; }
+  .rarity-epic { background: #1a003a; color: #cc44ff; border: 2px solid #8800cc; }
+  .rarity-legend { background: #2a1a00; color: var(--gold); border: 2px solid #aa6600; animation: goldGlow 1.5s infinite; }
+  @keyframes goldGlow { 0%,100%{box-shadow:0 0 4px #ffd700} 50%{box-shadow:0 0 12px #ffd700} }
+
+  .shop-card .fish-price { font-size: 7px; color: var(--gold); }
+  .shop-card .fish-desc { font-size: 5px; color: #5588aa; margin-top: 4px; line-height: 1.8; }
+  .shop-card .fish-speed { font-size: 5px; color: #44ff88; margin-top: 2px; }
+  .cant-afford { opacity: 0.4; cursor: not-allowed; }
+  .cant-afford:hover { border-color: #1a3a6a; transform: none; }
+
+  /* NOTIFICATIONS */
+  .notification {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: #0d1b2a;
+    border: 3px solid var(--gold);
+    padding: 8px 16px;
+    font-size: 7px;
+    color: var(--gold);
+    z-index: 200;
+    opacity: 0;
+    transition: all 0.3s;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 4px 4px 0 #000;
+  }
+  .notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* BUBBLE PARTICLES */
+  .bubble {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(100,200,255,0.3);
+    border: 1px solid rgba(150,220,255,0.5);
+    pointer-events: none;
+    animation: bubbleRise linear forwards;
+  }
+  @keyframes bubbleRise {
+    from { transform: translateY(0) scale(1); opacity: 0.8; }
+    to { transform: translateY(-150px) scale(1.5); opacity: 0; }
+  }
+
+  /* FOOD PARTICLE */
+  .food-particle {
+    position: absolute;
+    width: 6px; height: 6px;
+    background: #cc8800;
+    border: 2px solid #ffaa00;
+    pointer-events: none;
+    animation: foodFall 3s linear forwards;
+    z-index: 5;
+  }
+  @keyframes foodFall {
+    from { opacity: 1; }
+    to { transform: translateY(400px) rotate(360deg); opacity: 0; }
+  }
+
+  /* LIGHT OVERLAY */
+  .tank-frame.lights-off canvas { filter: brightness(0.15) saturate(0.3); }
+  .tank-frame.lights-off::after { display: none; }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .game-wrapper { flex-direction: column; }
+    .side-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
+    .panel-box { flex: 1; min-width: 140px; }
+  }
+
+  /* SCROLL indicator for fish count */
+  .fish-count-badge {
+    display: inline-block;
+    background: var(--gold);
+    color: #000;
+    font-size: 6px;
+    padding: 2px 5px;
+    margin-left: 4px;
+  }
+
+  .day-night-icon {
+    font-size: 16px;
+    animation: spin 0.3s;
+  }
+  @keyframes spin { from { transform: rotate(-30deg); } to { transform: rotate(0deg); } }
+</style>
+</head>
+<body>
+
+<div class="title-bar">
+  <h1>🐠 AQUABIT v1.0</h1>
+  <div class="coins-display">
+    <div class="coin-icon"></div>
+    <span id="coinDisplay">150</span> MONEDAS
+  </div>
+</div>
+
+<div class="game-wrapper">
+  <!-- AQUARIUM -->
+  <div class="aquarium-container">
+    <div class="tank-frame" id="tankFrame">
+      <canvas id="tankCanvas"></canvas>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-pixel btn-feed" onclick="feedFish()">🍔 ALIMENTAR</button>
+      <button class="btn-pixel btn-clean" onclick="cleanTank()">🧹 LIMPIAR</button>
+      <button class="btn-pixel btn-light" onclick="toggleLight()" id="btnLight">💡 LUZ OFF</button>
+      <button class="btn-pixel btn-shop" onclick="openShop()">🛒 TIENDA</button>
+    </div>
+
+    <div class="status-bar">
+      <div class="stat-block">
+        <div class="stat-label">COMIDA</div>
+        <div class="stat-bar-outer">
+          <div class="stat-bar-inner bar-food" id="barFood" style="width:70%"></div>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-label">LIMPIEZA</div>
+        <div class="stat-bar-outer">
+          <div class="stat-bar-inner bar-clean" id="barClean" style="width:100%"></div>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-label">FELICIDAD</div>
+        <div class="stat-bar-outer">
+          <div class="stat-bar-inner bar-happy" id="barHappy" style="width:80%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDE PANEL -->
+  <div class="side-panel">
+    <div class="panel-box">
+      <div class="panel-title">🐟 MIS PECES <span class="fish-count-badge" id="fishCountBadge">0</span></div>
+      <div id="fishList"></div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">📋 REGISTRO</div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+</div>
+
+<!-- SHOP MODAL -->
+<div class="modal-overlay" id="shopModal">
+  <div class="shop-modal">
+    <div class="shop-header">
+      <h2>🛒 TIENDA DE PECES</h2>
+      <button class="btn-close" onclick="closeShop()">✖ CERRAR</button>
+    </div>
+    <div class="shop-grid" id="shopGrid"></div>
+  </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div class="notification" id="notification"></div>
+
+<script>
+// ===================== GAME STATE =====================
+const state = {
+  coins: 150,
+  food: 70,
+  clean: 100,
+  happy: 80,
+  lightsOn: true,
+  fish: [],
+  nextId: 0,
+  dayCount: 1,
+  bubbles: [],
+  foodParticles: [],
+};
+
+// ===================== FISH CATALOG =====================
+const FISH_CATALOG = [
+  { id:'goldfish',    emoji:'🐟', name:'Pez Dorado',     rarity:'common', price:20,  speed:1.2, size:18, color:'#ffaa00', desc:'El clásico. Muy fácil de cuidar.' },
+  { id:'clownfish',  emoji:'🐠', name:'Pez Payaso',      rarity:'rare',   price:50,  speed:1.5, size:20, color:'#ff6600', desc:'Simpático y colorido. Le gusta jugar.' },
+  { id:'blowfish',   emoji:'🐡', name:'Pez Globo',       rarity:'rare',   price:65,  speed:0.7, size:22, color:'#ffcc44', desc:'Lento pero impresionante.' },
+  { id:'shark',      emoji:'🦈', name:'Tiburón Mini',    rarity:'epic',   price:120, speed:2.2, size:28, color:'#8899aa', desc:'Nada rápido y come mucho.' },
+  { id:'whale',      emoji:'🐋', name:'Ballenita',       rarity:'legend', price:300, speed:0.5, size:38, color:'#5577aa', desc:'Rara y majestuosa. ¡La envidia!' },
+  { id:'octopus',    emoji:'🐙', name:'Pulpito',         rarity:'epic',   price:150, speed:1.0, size:26, color:'#cc66aa', desc:'Se mueve en zigzag. Muy curioso.' },
+  { id:'starfish',   emoji:'⭐', name:'Estrella Mar',    rarity:'rare',   price:80,  speed:0.4, size:20, color:'#ffaa33', desc:'Lenta pero bonita. Felicidad +.' },
+  { id:'crab',       emoji:'🦀', name:'Cangrejo',        rarity:'common', price:30,  speed:0.6, size:16, color:'#ff4422', desc:'Camina raro pero es gracioso.' },
+  { id:'seahorse',   emoji:'🦄', name:'Caballito Mar',   rarity:'epic',   price:100, speed:0.8, size:22, color:'#ff88cc', desc:'Elegante. Sube y baja majestuoso.' },
+  { id:'jellyfish',  emoji:'🪼', name:'Medusa',          rarity:'rare',   price:60,  speed:0.5, size:20, color:'#aa44ff', desc:'Flota suavemente. Hipnotizante.' },
+  { id:'dolphin',    emoji:'🐬', name:'Delfín',          rarity:'legend', price:250, speed:2.8, size:30, color:'#6699cc', desc:'El más veloz. Salta y juega.' },
+  { id:'turtle',     emoji:'🐢', name:'Tortuga',         rarity:'common', price:40,  speed:0.5, size:22, color:'#33aa44', desc:'Vivira 100 años. Super tranquila.' },
+];
+
+// ===================== CANVAS SETUP =====================
+const canvas = document.getElementById('tankCanvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resizeCanvas() {
+  W = canvas.offsetWidth;
+  H = canvas.offsetHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ===================== FISH CLASS =====================
+class Fish {
+  constructor(template, coins_cost=0) {
+    Object.assign(this, template);
+    this.uid = state.nextId++;
+    this.x = rand(80, W - 80);
+    this.y = rand(60, H - 60);
+    this.vx = (Math.random()-0.5) * this.speed * 1.5;
+    this.vy = (Math.random()-0.5) * this.speed * 0.7;
+    this.facing = this.vx > 0 ? 1 : -1;
+    this.hunger = 100;
+    this.health = 100;
+    this.happiness = 80;
+    this.age = 0;
+    this.wobble = 0;
+    this.wobbleSpeed = 2 + Math.random() * 2;
+    this.bubbleTimer = rand(100, 300);
+    this.targetX = null;
+    this.targetY = null;
+    // Special behaviors
+    this.specialTimer = rand(200, 500);
+    this.bobDir = 1;
+    this.sinOffset = Math.random() * Math.PI * 2;
+    this.scale = 1;
+    this.scaleAnim = 0;
+  }
+
+  update(dt) {
+    this.age++;
+    this.wobble += 0.08;
+    this.sinOffset += 0.02;
+    this.specialTimer--;
+
+    // Hunger decay
+    if (this.age % 300 === 0) {
+      this.hunger = Math.max(0, this.hunger - (this.id === 'shark' ? 3 : 1));
+      if (this.hunger < 30) this.health = Math.max(0, this.health - 1);
+    }
+
+    // Special behaviors
+    if (this.id === 'dolphin' && this.specialTimer <= 0) {
+      this.vy = -this.speed * 3;
+      this.specialTimer = rand(300, 600);
+    }
+    if (this.id === 'jellyfish') {
+      this.vy = Math.sin(this.sinOffset) * 0.3;
+    }
+    if (this.id === 'seahorse') {
+      this.vy = Math.sin(this.sinOffset) * this.speed * 0.5;
+      this.vx *= 0.95;
+      if (Math.abs(this.vx) < 0.1) this.vx = (Math.random()-0.5) * this.speed;
+    }
+    if (this.id === 'crab') {
+      if (this.y > H - 50) { this.y = H - 50; this.vy = -1; }
+      if (Math.random() < 0.01) this.vx = (Math.random()-0.5) * this.speed * 2;
+    }
+    if (this.id === 'starfish') {
+      this.x += Math.sin(this.sinOffset * 0.3) * 0.2;
+      this.y += Math.cos(this.sinOffset * 0.2) * 0.2;
+    }
+
+    // Movement
+    this.x += this.vx;
+    this.y += this.vy;
+
+    // Wall bounce
+    if (this.x < this.size) { this.x = this.size; this.vx = Math.abs(this.vx) + 0.1; this.facing = 1; }
+    if (this.x > W - this.size) { this.x = W - this.size; this.vx = -(Math.abs(this.vx) + 0.1); this.facing = -1; }
+    if (this.y < this.size) { this.y = this.size; this.vy = Math.abs(this.vy); }
+    if (this.y > H - this.size) { this.y = H - this.size; this.vy = -(Math.abs(this.vy)); }
+
+    // Random direction changes
+    if (Math.random() < 0.005) {
+      this.vx += (Math.random()-0.5) * this.speed;
+      this.vy += (Math.random()-0.5) * this.speed * 0.5;
+    }
+
+    // Speed cap
+    const maxSpd = this.speed * 2.5;
+    const spd = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+    if (spd > maxSpd) { this.vx = (this.vx/spd)*maxSpd; this.vy = (this.vy/spd)*maxSpd; }
+
+    if (this.vx > 0.1) this.facing = 1;
+    else if (this.vx < -0.1) this.facing = -1;
+
+    // Bubbles
+    this.bubbleTimer--;
+    if (this.bubbleTimer <= 0) {
+      spawnBubble(this.x, this.y - this.size);
+      this.bubbleTimer = rand(150, 400);
+    }
+
+    // Target food
+    for (let fp of state.foodParticles) {
+      const dx = fp.x - this.x, dy = fp.y - this.y;
+      const d = Math.sqrt(dx*dx+dy*dy);
+      if (d < 30) {
+        this.hunger = Math.min(100, this.hunger + 15);
+        fp.eaten = true;
+        this.scaleAnim = 10;
+        spawnBubble(this.x, this.y);
+      } else if (d < 120) {
+        this.vx += (dx/d) * 0.3;
+        this.vy += (dy/d) * 0.2;
+      }
+    }
+
+    if (this.scaleAnim > 0) {
+      this.scale = 1 + Math.sin(this.scaleAnim * 0.5) * 0.2;
+      this.scaleAnim--;
+    } else { this.scale = 1; }
+  }
+
+  draw() {
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.facing * this.scale, this.scale);
+
+    // Shadow
+    ctx.save();
+    ctx.translate(4, 6);
+    ctx.globalAlpha = 0.15;
+    ctx.font = `${this.size * 1.5}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+
+    // Fish wobble
+    ctx.rotate(Math.sin(this.wobble * this.wobbleSpeed) * 0.12);
+
+    // Glow for legendary
+    if (this.rarity === 'legend') {
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 15 + Math.sin(this.wobble) * 5;
+    }
+
+    // Draw emoji fish
+    ctx.font = `${this.size * 1.5}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.emoji, 0, 0);
+
+    // Health bar if sick
+    if (this.health < 70) {
+      ctx.fillStyle = '#220000';
+      ctx.fillRect(-this.size, -this.size - 8, this.size * 2, 5);
+      ctx.fillStyle = this.health < 30 ? '#ff0000' : '#ff8800';
+      ctx.fillRect(-this.size, -this.size - 8, (this.size * 2) * (this.health / 100), 5);
+    }
+
+    // Hunger indicator
+    if (this.hunger < 40) {
+      ctx.font = '10px serif';
+      ctx.fillText('❗', this.size - 4, -this.size);
+    }
+
+    ctx.restore();
+  }
+}
+
+// ===================== PARTICLES =====================
+function spawnBubble(x, y) {
+  state.bubbles.push({ x, y, r: rand(3, 8), life: 1.0, speed: rand(1, 3) * 0.5 });
+}
+
+function spawnFood(x, y) {
+  for (let i = 0; i < 5; i++) {
+    state.foodParticles.push({
+      x: x + (Math.random()-0.5)*20,
+      y: y,
+      vy: rand(1, 3) * 0.3,
+      eaten: false,
+      life: 1.0,
+    });
+  }
+}
+
+// ===================== DRAW BACKGROUND =====================
+function drawBackground() {
+  // Deep water gradient
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, '#001a40');
+  grad.addColorStop(0.4, '#001530');
+  grad.addColorStop(1, '#000a1a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Light rays
+  if (state.lightsOn) {
+    ctx.save();
+    for (let i = 0; i < 4; i++) {
+      const rx = 60 + i * (W/4);
+      const grad2 = ctx.createLinearGradient(rx, 0, rx + 40, H);
+      grad2.addColorStop(0, 'rgba(0,150,255,0.08)');
+      grad2.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad2;
+      ctx.beginPath();
+      ctx.moveTo(rx - 10, 0);
+      ctx.lineTo(rx + 50, 0);
+      ctx.lineTo(rx + 80, H);
+      ctx.lineTo(rx + 20, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Sand floor (pixelated)
+  for (let sx = 0; sx < W; sx += 8) {
+    const sh = 20 + Math.sin(sx * 0.05) * 6;
+    const bright = 0.5 + Math.random() * 0.1;
+    ctx.fillStyle = `rgb(${Math.floor(180*bright)},${Math.floor(140*bright)},${Math.floor(60*bright)})`;
+    ctx.fillRect(sx, H - sh, 8, sh);
+  }
+
+  // Decorative rocks (pixel style)
+  drawPixelRock(40, H - 30, 24);
+  drawPixelRock(W - 60, H - 25, 30);
+  drawPixelRock(W/2 - 10, H - 22, 18);
+
+  // Seaweed
+  drawSeaweed(100, H - 30, 60, '#00aa44');
+  drawSeaweed(220, H - 28, 50, '#00cc55');
+  drawSeaweed(W-150, H - 32, 65, '#009933');
+  drawSeaweed(W-280, H - 28, 45, '#00bb44');
+
+  // Dirty effect
+  if (state.clean < 50) {
+    ctx.fillStyle = `rgba(100,80,0,${(50 - state.clean) / 200})`;
+    ctx.fillRect(0, 0, W, H);
+    // Algae particles
+    ctx.fillStyle = 'rgba(0,100,0,0.3)';
+    for (let i = 0; i < 8; i++) {
+      ctx.fillRect(
+        (i * 127 + Date.now() * 0.01) % W,
+        (i * 89 + 20) % H,
+        4, 4
+      );
+    }
+  }
+
+  // Surface shimmer
+  if (state.lightsOn) {
+    ctx.save();
+    const surfGrad = ctx.createLinearGradient(0, 0, W, 8);
+    for (let i = 0; i < 5; i++) {
+      const p = (i / 5) + ((Date.now() * 0.0003) % 0.2);
+      surfGrad.addColorStop(p % 1, 'rgba(100,200,255,0.6)');
+      surfGrad.addColorStop((p + 0.1) % 1, 'rgba(50,150,255,0.2)');
+    }
+    ctx.fillStyle = surfGrad;
+    ctx.fillRect(0, 0, W, 6);
+    ctx.restore();
+  }
+}
+
+function drawPixelRock(cx, cy, size) {
+  const colors = ['#445566', '#334455', '#556677'];
+  const ps = 4;
+  const grid = [
+    [0,1,1,1,0],
+    [1,1,1,1,1],
+    [1,1,1,1,1],
+    [0,1,1,1,0],
+    [0,0,1,0,0],
+  ];
+  for (let gy = 0; gy < grid.length; gy++) {
+    for (let gx = 0; gx < grid[gy].length; gx++) {
+      if (grid[gy][gx]) {
+        ctx.fillStyle = colors[(gx + gy) % colors.length];
+        ctx.fillRect(cx + gx * ps - size/2, cy + gy * ps - size/2, ps, ps);
+      }
+    }
+  }
+}
+
+function drawSeaweed(x, baseY, height, color) {
+  const t = Date.now() * 0.001;
+  const segments = Math.floor(height / 8);
+  for (let i = 0; i < segments; i++) {
+    const segY = baseY - i * 8;
+    const wave = Math.sin(t + i * 0.5) * (i * 1.2);
+    const h = Math.floor(1 - i/segments * 0.5) * 6;
+    ctx.fillStyle = i % 2 === 0 ? color : (color + 'aa');
+    ctx.fillRect(x + wave - 3, segY, 6, 8);
+  }
+}
+
+// ===================== DRAW BUBBLES & FOOD =====================
+function drawBubbles() {
+  for (let b of state.bubbles) {
+    ctx.save();
+    ctx.globalAlpha = b.life * 0.6;
+    ctx.strokeStyle = 'rgba(150,220,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = b.life * 0.15;
+    ctx.fillStyle = '#80ddff';
+    ctx.fill();
+    ctx.restore();
+    b.y -= b.speed;
+    b.life -= 0.01;
+  }
+  state.bubbles = state.bubbles.filter(b => b.life > 0);
+}
+
+function drawFoodParticles() {
+  for (let fp of state.foodParticles) {
+    if (fp.eaten) continue;
+    ctx.save();
+    ctx.globalAlpha = fp.life;
+    ctx.fillStyle = '#cc8800';
+    ctx.strokeStyle = '#ffaa00';
+    ctx.lineWidth = 1;
+    ctx.fillRect(fp.x - 3, fp.y - 3, 6, 6);
+    ctx.strokeRect(fp.x - 3, fp.y - 3, 6, 6);
+    ctx.restore();
+    fp.y += fp.vy;
+    fp.vy += 0.05;
+    fp.life -= 0.003;
+    if (fp.y > H - 20) { fp.life -= 0.05; }
+  }
+  state.foodParticles = state.foodParticles.filter(fp => !fp.eaten && fp.life > 0);
+}
+
+// ===================== MAIN LOOP =====================
+let lastTime = 0;
+function gameLoop(ts) {
+  const dt = ts - lastTime;
+  lastTime = ts;
+
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+  drawBubbles();
+  drawFoodParticles();
+
+  for (let fish of state.fish) {
+    fish.update(dt);
+    fish.draw();
+  }
+
+  updateUI();
+  requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+
+// ===================== UI UPDATES =====================
+function updateUI() {
+  // Passive decays
+  if (Math.random() < 0.001) state.food = Math.max(0, state.food - 1);
+  if (Math.random() < 0.0005) state.clean = Math.max(0, state.clean - 1);
+  if (state.food < 30) state.happy = Math.max(0, state.happy - 0.01);
+  if (state.clean < 40) state.happy = Math.max(0, state.happy - 0.005);
+  if (state.food > 60 && state.clean > 60) state.happy = Math.min(100, state.happy + 0.003);
+
+  setBar('barFood', state.food);
+  setBar('barClean', state.clean);
+  setBar('barHappy', state.happy);
+
+  updateFishList();
+  document.getElementById('coinDisplay').textContent = state.coins;
+}
+
+function setBar(id, val) {
+  const el = document.getElementById(id);
+  el.style.width = val + '%';
+  if (val < 25) el.style.background = '#ff2244';
+  else if (val < 50) el.style.background = '#ff8800';
+  else {
+    if (id === 'barFood') el.style.background = '#ff8800';
+    else if (id === 'barClean') el.style.background = '#00aaff';
+    else el.style.background = '#ff44aa';
+  }
+}
+
+function updateFishList() {
+  const list = document.getElementById('fishList');
+  document.getElementById('fishCountBadge').textContent = state.fish.length;
+  list.innerHTML = '';
+  if (state.fish.length === 0) {
+    list.innerHTML = '<div style="font-size:6px;color:#335577;padding:8px;text-align:center">¡Ve a la tienda<br>y compra peces!</div>';
+    return;
+  }
+  for (let f of state.fish) {
+    const div = document.createElement('div');
+    div.className = 'fish-list-item';
+    const healthClass = f.health > 60 ? 'dot-healthy' : f.health > 30 ? 'dot-ok' : 'dot-sick';
+    div.innerHTML = `<span class="emoji">${f.emoji}</span><span>${f.name.split(' ')[0]}</span><div class="fish-health-dot ${healthClass}"></div>`;
+    list.appendChild(div);
+  }
+}
+
+// ===================== ACTIONS =====================
+function feedFish() {
+  if (state.coins < 5) { notify('💸 ¡Sin monedas!', '#ff4444'); return; }
+  if (state.food >= 100) { notify('🍔 Los peces ya están llenos!', '#ffaa00'); return; }
+  state.coins -= 5;
+  state.food = Math.min(100, state.food + 25);
+  state.happy = Math.min(100, state.happy + 5);
+  // Drop food from top
+  const cx = rand(60, W - 60);
+  spawnFood(cx, 10);
+  spawnFood(cx + rand(-30,30), 10);
+  log('🍔 Alimentaste a los peces (-5 monedas)');
+  notify('🍔 ¡Peces alimentados!', '#ffaa00');
+}
+
+function cleanTank() {
+  if (state.coins < 10) { notify('💸 ¡Sin monedas para limpiar!', '#ff4444'); return; }
+  if (state.clean >= 100) { notify('🧹 ¡La pecera ya está limpia!', '#44aaff'); return; }
+  state.coins -= 10;
+  state.clean = Math.min(100, state.clean + 40);
+  state.happy = Math.min(100, state.happy + 8);
+  // Bubble burst
+  for (let i = 0; i < 20; i++) {
+    spawnBubble(rand(20, W-20), rand(20, H-20));
+  }
+  log('🧹 Limpiaste la pecera (-10 monedas)');
+  notify('🧹 ¡Pecera reluciente!', '#44aaff');
+}
+
+function toggleLight() {
+  state.lightsOn = !state.lightsOn;
+  const tank = document.getElementById('tankFrame');
+  const btn = document.getElementById('btnLight');
+  if (state.lightsOn) {
+    tank.classList.remove('lights-off');
+    btn.textContent = '💡 LUZ OFF';
+    canvas.style.filter = '';
+    log('💡 Luces encendidas');
+  } else {
+    canvas.style.filter = 'brightness(0.2) saturate(0.4)';
+    btn.textContent = '🌙 LUZ ON';
+    log('🌙 Luces apagadas. Los peces descansan...');
+    notify('🌙 Buenas noches, peces!', '#aaaaff');
+  }
+}
+
+// ===================== SHOP =====================
+function openShop() {
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+  for (let fish of FISH_CATALOG) {
+    const canAfford = state.coins >= fish.price;
+    const card = document.createElement('div');
+    card.className = 'shop-card' + (canAfford ? '' : ' cant-afford');
+    card.innerHTML = `
+      <span class="fish-emoji">${fish.emoji}</span>
+      <div class="fish-name">${fish.name}</div>
+      <span class="fish-rarity rarity-${fish.rarity}">${fish.rarity.toUpperCase()}</span>
+      <div class="fish-desc">${fish.desc}</div>
+      <div class="fish-speed">⚡ VEL: ${fish.speed.toFixed(1)}</div>
+      <div class="fish-price" style="margin-top:8px">🪙 ${fish.price} monedas</div>
+    `;
+    if (canAfford) card.onclick = () => buyFish(fish);
+    grid.appendChild(card);
+  }
+  document.getElementById('shopModal').classList.add('open');
+}
+
+function closeShop() {
+  document.getElementById('shopModal').classList.remove('open');
+}
+
+function buyFish(template) {
+  if (state.coins < template.price) { notify('💸 ¡No tienes suficientes monedas!', '#ff4444'); return; }
+  if (state.fish.length >= 15) { notify('🐟 ¡Pecera llena! Máximo 15 peces.', '#ff8800'); return; }
+  state.coins -= template.price;
+  const newFish = new Fish(template);
+  state.fish.push(newFish);
+  // Splash bubbles
+  for (let i = 0; i < 10; i++) spawnBubble(newFish.x, newFish.y);
+  log(`🛒 Compraste: ${template.emoji} ${template.name} (-${template.price} monedas)`);
+  notify(`${template.emoji} ¡${template.name} añadido!`, '#00ff88');
+  closeShop();
+  updateUI();
+  // Award coins over time
+  awardCoins(template.rarity);
+}
+
+function awardCoins(rarity) {
+  const awards = { common: 3, rare: 6, epic: 10, legend: 20 };
+  setInterval(() => {
+    state.coins += awards[rarity] || 2;
+  }, 15000);
+}
+
+// ===================== CLICK TO INTERACT =====================
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+  // Check if clicked on fish
+  for (let fish of state.fish) {
+    const dx = fish.x - mx, dy = fish.y - my;
+    if (Math.sqrt(dx*dx+dy*dy) < fish.size * 1.2) {
+      fish.happiness = Math.min(100, fish.happiness + 10);
+      fish.scaleAnim = 15;
+      spawnBubble(fish.x, fish.y - fish.size);
+      notify(`${fish.emoji} ¡${fish.name} está feliz!`, '#ff88cc');
+      state.happy = Math.min(100, state.happy + 2);
+      return;
+    }
+  }
+  // Drop food at click position
+  if (state.food > 0) {
+    spawnFood(mx, my);
+  }
+});
+
+// ===================== LOG =====================
+function log(msg) {
+  const box = document.getElementById('logBox');
+  const now = new Date();
+  const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  const entry = document.createElement('div');
+  entry.className = 'log-entry';
+  entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+  box.prepend(entry);
+  if (box.children.length > 20) box.lastChild.remove();
+}
+
+// ===================== NOTIFICATIONS =====================
+function notify(msg, color='#ffd700') {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.style.borderColor = color;
+  el.style.color = color;
+  el.classList.add('show');
+  clearTimeout(window._notifTimer);
+  window._notifTimer = setTimeout(() => el.classList.remove('show'), 2200);
+}
+
+// ===================== COIN INCOME =====================
+setInterval(() => {
+  if (state.fish.length > 0) {
+    const earned = state.fish.length;
+    state.coins += earned;
+    if (Math.random() < 0.3) log(`🪙 +${earned} monedas por tus peces`);
+  }
+}, 10000);
+
+// ===================== RANDOM EVENTS =====================
+setInterval(() => {
+  if (state.fish.length === 0) return;
+  const events = [
+    () => { state.coins += 20; notify('🎰 ¡Bonus! +20 monedas', '#ffd700'); log('🎰 ¡Evento: Bonus de monedas!'); },
+    () => { state.clean = Math.max(0, state.clean - 15); notify('💩 ¡Los peces ensuciaron!', '#aaaa00'); log('💩 Los peces ensuciaron la pecera'); },
+    () => { const f = state.fish[rand(0, state.fish.length-1)]; if(f){ f.hunger = Math.max(0, f.hunger - 20); notify(`${f.emoji} ${f.name} tiene hambre!`, '#ff8800'); } },
+  ];
+  events[rand(0, events.length-1)]();
+}, 30000);
+
+// ===================== CLOSE MODAL ON BG CLICK =====================
+document.getElementById('shopModal').addEventListener('click', (e) => {
+  if (e.target === document.getElementById('shopModal')) closeShop();
+});
+
+// ===================== UTILS =====================
+function rand(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+// ===================== STARTER FISH =====================
+setTimeout(() => {
+  const starter = FISH_CATALOG.find(f => f.id === 'goldfish');
+  const f = new Fish(starter);
+  f.x = W / 2; f.y = H / 2;
+  state.fish.push(f);
+  log('🐟 Pez Dorado de bienvenida añadido');
+  notify('🐟 ¡Bienvenido! Tienes un Pez Dorado de inicio 🎉', '#00ff88');
+}, 500);
+
+// Initial log entries
+log('🎮 ¡AquaBit iniciado! Bienvenido');
+log('💡 Haz clic en los peces para acariciarlos');
+log('🛒 Visita la tienda para comprar más peces');
+log('🍔 Alimenta = 5 monedas | 🧹 Limpiar = 10 monedas');
+</script>
+</body>
+</html>
