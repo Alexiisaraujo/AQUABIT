@@ -1,0 +1,1866 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🐟 AquaBit v2.0 - OCÉANO SALVAJE</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+  :root {
+    --pixel: 4px;
+    --bg: #050d18;
+    --water-deep: #001a3a;
+    --water-mid: #003060;
+    --water-light: #0050a0;
+    --water-surface: #0080ff;
+    --gold: #ffd700;
+    --green: #00ff44;
+    --red: #ff2244;
+    --coral: #ff6b6b;
+    --ui-bg: #0d1b2a;
+    --ui-border: #2255aa;
+    --panel-bg: #050e1a;
+    --text: #88ccff;
+    --white: #e0f0ff;
+    --pixel-shadow: 4px 4px 0px #000;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; image-rendering: pixelated; }
+
+  body {
+    background: var(--bg);
+    font-family: 'Press Start 2P', monospace;
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* TITLE */
+  .title-bar {
+    width: 100%;
+    background: linear-gradient(90deg, #000 0%, #001030 50%, #000 100%);
+    border-bottom: 4px solid var(--ui-border);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .title-bar h1 {
+    font-size: 12px;
+    color: var(--gold);
+    text-shadow: 3px 3px 0 #8b5e00, 6px 6px 0 #000;
+    animation: titlePulse 2s infinite;
+  }
+  @keyframes titlePulse {
+    0%,100% { color: var(--gold); }
+    50% { color: #fffaaa; }
+  }
+  .coins-display {
+    font-size: 8px;
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .coin-icon { display: inline-block; width: 12px; height: 12px; background: var(--gold); border-radius: 50%; border: 2px solid #8b5e00; animation: coinSpin 1s infinite; }
+  @keyframes coinSpin { 0%,100%{transform:scaleX(1)} 50%{transform:scaleX(0.3)} }
+  .title-stats { display: flex; gap: 12px; font-size: 7px; }
+  .title-stat { color: #88ccff; }
+  .title-stat span { color: var(--gold); }
+
+  /* TANK TABS */
+  .tank-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 16px 0;
+    width: 100%;
+    max-width: 1100px;
+  }
+  .tank-tab {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    padding: 6px 10px;
+    background: #0a1a2e;
+    border: 2px solid #1a3a6a;
+    color: #5588aa;
+    cursor: pointer;
+    border-bottom: none;
+    transition: all 0.1s;
+  }
+  .tank-tab.active {
+    background: #001a40;
+    border-color: var(--gold);
+    color: var(--gold);
+  }
+  .tank-tab:hover:not(.active) { border-color: #3366aa; color: #88aacc; }
+  .btn-new-tank {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    padding: 6px 10px;
+    background: #1a0030;
+    border: 2px solid #7700cc;
+    color: #cc44ff;
+    cursor: pointer;
+    border-bottom: none;
+  }
+  .btn-new-tank:hover { background: #2a0050; }
+
+  /* MAIN LAYOUT */
+  .game-wrapper {
+    display: flex;
+    gap: 12px;
+    padding: 0 16px 16px;
+    width: 100%;
+    max-width: 1100px;
+    align-items: flex-start;
+    border-top: 2px solid var(--gold);
+  }
+
+  /* AQUARIUM */
+  .aquarium-container {
+    flex: 1;
+    position: relative;
+  }
+  .tank-frame {
+    border: 8px solid #334;
+    border-top: 12px solid #667;
+    border-bottom: 16px solid #223;
+    box-shadow: 0 0 0 4px #111, 0 0 30px rgba(0,100,255,0.3), inset 0 0 60px rgba(0,50,150,0.4);
+    position: relative;
+    overflow: hidden;
+    background: var(--water-deep);
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 420px;
+    cursor: crosshair;
+  }
+
+  /* WATER SCAN LINE EFFECT */
+  .tank-frame::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(0,0,0,0.07) 4px);
+    pointer-events: none;
+    z-index: 10;
+  }
+  .tank-frame::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 30px;
+    background: linear-gradient(to bottom, rgba(0,120,255,0.35), transparent);
+    pointer-events: none;
+    z-index: 11;
+    animation: surfaceShimmer 3s ease-in-out infinite;
+  }
+  @keyframes surfaceShimmer {
+    0%,100% { opacity: 0.7; }
+    50% { opacity: 1; }
+  }
+
+  /* CONTROLS */
+  .action-bar {
+    display: flex;
+    gap: 5px;
+    padding: 8px 0;
+    flex-wrap: wrap;
+  }
+  .btn-pixel {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 6px;
+    padding: 7px 9px;
+    border: 3px solid;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.1s;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .btn-pixel:active { transform: translate(2px,2px); }
+  .btn-feed { background: #1a3a00; color: #88ff44; border-color: #55aa00; box-shadow: 3px 3px 0 #002200; }
+  .btn-feed:hover { background: #2a5500; }
+  .btn-clean { background: #001a3a; color: #44aaff; border-color: #0055aa; box-shadow: 3px 3px 0 #000033; }
+  .btn-clean:hover { background: #002255; }
+  .btn-light { background: #1a1a00; color: #ffff44; border-color: #aaaa00; box-shadow: 3px 3px 0 #111100; }
+  .btn-light:hover { background: #2a2a00; }
+  .btn-shop { background: #1a0030; color: #cc44ff; border-color: #7700cc; box-shadow: 3px 3px 0 #110022; }
+  .btn-shop:hover { background: #2a0050; }
+  .btn-trophy { background: #2a1a00; color: var(--gold); border-color: #aa6600; box-shadow: 3px 3px 0 #110800; }
+  .btn-trophy:hover { background: #3a2800; }
+  .btn-coral { background: #2a0010; color: #ff6b6b; border-color: #aa0033; box-shadow: 3px 3px 0 #110008; }
+  .btn-coral:hover { background: #3a0020; }
+
+  .status-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    padding: 6px 0;
+  }
+  .stat-block {
+    flex: 1;
+    min-width: 100px;
+    background: var(--panel-bg);
+    border: 3px solid var(--ui-border);
+    padding: 5px 7px;
+  }
+  .stat-label { font-size: 5px; color: #6699cc; margin-bottom: 4px; }
+  .stat-bar-outer {
+    height: 8px;
+    background: #001a33;
+    border: 2px solid #003366;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-bar-inner {
+    height: 100%;
+    transition: width 0.5s, background-color 0.5s;
+    position: relative;
+    overflow: hidden;
+  }
+  .stat-bar-inner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(90deg, rgba(255,255,255,0.2) 0px, rgba(255,255,255,0.2) 4px, transparent 4px, transparent 8px);
+  }
+  .bar-food { background: #ff8800; }
+  .bar-clean { background: #00aaff; }
+  .bar-happy { background: #ff44aa; }
+  .bar-danger { background: #ff0000; }
+
+  /* SIDE PANEL */
+  .side-panel {
+    width: 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .panel-box {
+    background: var(--panel-bg);
+    border: 3px solid var(--ui-border);
+    padding: 8px;
+  }
+  .panel-title {
+    font-size: 6px;
+    color: var(--gold);
+    border-bottom: 2px solid var(--ui-border);
+    padding-bottom: 5px;
+    margin-bottom: 6px;
+    text-shadow: 2px 2px 0 #000;
+  }
+  .fish-list-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 0;
+    border-bottom: 1px solid #112244;
+    font-size: 5.5px;
+    color: #99ccff;
+    cursor: pointer;
+  }
+  .fish-list-item:hover { color: #fff; }
+  .fish-list-item .emoji { font-size: 12px; }
+  .fish-health-dot { width: 6px; height: 6px; border-radius: 50%; margin-left: auto; flex-shrink: 0; }
+  .dot-healthy { background: var(--green); box-shadow: 0 0 4px var(--green); }
+  .dot-sick { background: var(--red); box-shadow: 0 0 4px var(--red); animation: blink 0.5s infinite; }
+  .dot-ok { background: #ffaa00; }
+  .dot-dead { background: #555; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  .log-box {
+    max-height: 100px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--ui-border) #000;
+  }
+  .log-entry {
+    font-size: 5px;
+    color: #5599cc;
+    padding: 2px 0;
+    border-bottom: 1px solid #0a1a2a;
+    animation: fadeIn 0.3s;
+    line-height: 1.6;
+  }
+  .log-entry.log-danger { color: #ff4444; }
+  .log-entry.log-death { color: #ff0000; }
+  .log-entry.log-trophy { color: var(--gold); }
+  .log-entry.log-birth { color: #88ff44; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; } }
+  .log-time { color: #335577; }
+
+  /* TROPHIES */
+  .trophy-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .trophy-item {
+    background: #0a1822;
+    border: 2px solid #1a3a6a;
+    padding: 4px;
+    text-align: center;
+    font-size: 5px;
+    color: #5588aa;
+  }
+  .trophy-item.earned {
+    border-color: var(--gold);
+    color: var(--gold);
+    animation: trophyGlow 2s infinite;
+  }
+  @keyframes trophyGlow { 0%,100%{box-shadow:none} 50%{box-shadow:0 0 8px #ffd700} }
+  .trophy-icon { font-size: 16px; display: block; margin-bottom: 3px; }
+  .trophy-item:not(.earned) .trophy-icon { filter: grayscale(1) brightness(0.3); }
+
+  /* CORAL SHOP */
+  .coral-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    padding: 10px;
+  }
+  .coral-card {
+    background: #0a0d1e;
+    border: 2px solid #1a1a5a;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+    font-size: 5px;
+  }
+  .coral-card:hover { border-color: #ff6b6b; transform: translate(-1px,-1px); }
+  .coral-card .coral-icon { font-size: 28px; display: block; margin-bottom: 4px; }
+  .coral-card .coral-name { font-size: 6px; color: #ff9999; margin-bottom: 3px; }
+  .coral-card .coral-price { font-size: 5px; color: var(--gold); }
+  .coral-card .coral-desc { font-size: 4.5px; color: #8888aa; margin-top: 3px; line-height: 1.7; }
+
+  /* SHOP MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.88);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .shop-modal {
+    background: #060f1d;
+    border: 4px solid var(--gold);
+    box-shadow: 8px 8px 0 #000, 0 0 40px rgba(255,215,0,0.2);
+    width: 620px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .shop-header {
+    background: #0d1f35;
+    border-bottom: 4px solid var(--gold);
+    padding: 12px 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .shop-header h2 { font-size: 10px; color: var(--gold); text-shadow: 3px 3px 0 #000; }
+  .btn-close {
+    font-family: 'Press Start 2P', monospace;
+    font-size: 8px;
+    background: #330000;
+    color: #ff4444;
+    border: 3px solid #880000;
+    padding: 5px 8px;
+    cursor: pointer;
+  }
+  .btn-close:hover { background: #550000; }
+  .shop-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 10px;
+    padding: 14px;
+  }
+  .shop-card {
+    background: #0a1a2e;
+    border: 3px solid #1a3a6a;
+    padding: 10px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, transform 0.1s;
+    position: relative;
+  }
+  .shop-card:hover { border-color: var(--gold); transform: translate(-2px,-2px); }
+  .shop-card:active { transform: translate(0,0); }
+  .shop-card .fish-emoji { font-size: 32px; display: block; margin-bottom: 6px; filter: drop-shadow(0 0 8px rgba(0,150,255,0.5)); }
+  .shop-card .fish-name { font-size: 6.5px; color: var(--white); margin-bottom: 3px; }
+  .shop-card .fish-rarity {
+    font-size: 5px;
+    padding: 2px 5px;
+    display: inline-block;
+    margin-bottom: 5px;
+  }
+  .rarity-common { background: #223; color: #88aacc; border: 2px solid #446; }
+  .rarity-rare { background: #002244; color: #44aaff; border: 2px solid #0066cc; }
+  .rarity-epic { background: #1a003a; color: #cc44ff; border: 2px solid #8800cc; }
+  .rarity-legend { background: #2a1a00; color: var(--gold); border: 2px solid #aa6600; animation: goldGlow 1.5s infinite; }
+  .rarity-predator { background: #2a0000; color: #ff3333; border: 2px solid #880000; animation: predatorPulse 1s infinite; }
+  @keyframes goldGlow { 0%,100%{box-shadow:0 0 4px #ffd700} 50%{box-shadow:0 0 14px #ffd700} }
+  @keyframes predatorPulse { 0%,100%{box-shadow:0 0 4px #ff0000} 50%{box-shadow:0 0 14px #ff0000} }
+
+  .shop-card .fish-price { font-size: 6.5px; color: var(--gold); margin-top: 6px; }
+  .shop-card .fish-desc { font-size: 4.5px; color: #5588aa; margin-top: 3px; line-height: 1.8; }
+  .shop-card .fish-speed { font-size: 4.5px; color: #44ff88; margin-top: 2px; }
+  .cant-afford { opacity: 0.4; cursor: not-allowed; }
+  .cant-afford:hover { border-color: #1a3a6a; transform: none; }
+  .predator-tag { font-size: 4.5px; color: #ff4444; display: block; margin-top: 2px; }
+
+  /* NOTIFICATIONS */
+  .notification {
+    position: fixed;
+    top: 70px;
+    left: 50%;
+    transform: translateX(-50%) translateY(-20px);
+    background: #0d1b2a;
+    border: 3px solid var(--gold);
+    padding: 7px 14px;
+    font-size: 6.5px;
+    color: var(--gold);
+    z-index: 200;
+    opacity: 0;
+    transition: all 0.3s;
+    text-align: center;
+    white-space: nowrap;
+    box-shadow: 4px 4px 0 #000;
+    max-width: 90vw;
+    white-space: normal;
+  }
+  .notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* TROPHY MODAL */
+  .trophy-modal-inner {
+    background: #060f1d;
+    border: 4px solid var(--gold);
+    box-shadow: 8px 8px 0 #000;
+    width: 580px;
+    max-width: 95vw;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+  .trophy-grid-big {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 10px;
+    padding: 14px;
+  }
+  .trophy-big-item {
+    background: #0a1822;
+    border: 2px solid #1a3a6a;
+    padding: 10px;
+    text-align: center;
+    font-size: 5px;
+    color: #5588aa;
+    position: relative;
+  }
+  .trophy-big-item.earned {
+    border-color: var(--gold);
+    color: var(--gold);
+    animation: trophyGlow 2s infinite;
+  }
+  .trophy-big-icon { font-size: 28px; display: block; margin-bottom: 6px; }
+  .trophy-big-item:not(.earned) .trophy-big-icon { filter: grayscale(1) brightness(0.25); }
+  .trophy-big-name { font-size: 5.5px; margin-bottom: 3px; }
+  .trophy-big-desc { font-size: 4px; color: #446688; line-height: 1.7; }
+  .trophy-big-item.earned .trophy-big-desc { color: #aa8844; }
+  .trophy-locked { position: absolute; top: 4px; right: 4px; font-size: 8px; }
+
+  /* STATS PANEL */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-top: 4px;
+  }
+  .stat-mini {
+    background: #0a1422;
+    border: 1px solid #1a3a6a;
+    padding: 4px;
+    font-size: 4.5px;
+    color: #5588aa;
+  }
+  .stat-mini span { color: #88ccff; float: right; }
+
+  /* DANGER WARNING */
+  .danger-flash {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    z-index: 15;
+    border: 6px solid transparent;
+    transition: border-color 0.2s;
+  }
+  .danger-flash.alert { border-color: rgba(255,0,0,0.6); animation: dangerFlash 0.5s infinite; }
+  @keyframes dangerFlash { 50% { border-color: rgba(255,0,0,0); } }
+
+  /* RESPONSIVE */
+  @media (max-width: 700px) {
+    .game-wrapper { flex-direction: column; padding: 0 8px 8px; }
+    .side-panel { width: 100%; flex-direction: row; flex-wrap: wrap; }
+    .panel-box { flex: 1; min-width: 130px; }
+    canvas { height: 300px; }
+  }
+
+  .fish-count-badge {
+    display: inline-block;
+    background: var(--gold);
+    color: #000;
+    font-size: 5.5px;
+    padding: 2px 4px;
+    margin-left: 4px;
+  }
+  .dead-count-badge {
+    display: inline-block;
+    background: #550000;
+    color: #ff6666;
+    font-size: 5.5px;
+    padding: 2px 4px;
+    margin-left: 4px;
+  }
+
+  /* COMBO DISPLAY */
+  .combo-display {
+    position: absolute;
+    top: 40px;
+    right: 10px;
+    font-size: 7px;
+    color: var(--gold);
+    text-shadow: 2px 2px 0 #000;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .combo-display.show { opacity: 1; animation: comboAnim 0.5s; }
+  @keyframes comboAnim { 0%{transform:scale(2);opacity:0} 100%{transform:scale(1);opacity:1} }
+
+  /* SCROLL indicator for fish count */
+  .day-night-icon {
+    font-size: 14px;
+    animation: spin 0.3s;
+  }
+  @keyframes spin { from { transform: rotate(-30deg); } to { transform: rotate(0deg); } }
+
+  /* NEW TANK UNLOCK */
+  .unlock-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    pointer-events: none;
+  }
+  .unlock-msg {
+    font-size: 8px;
+    color: var(--gold);
+    text-align: center;
+    text-shadow: 3px 3px 0 #000;
+    animation: titlePulse 1.5s infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="title-bar">
+  <h1>🐠 AQUABIT v2.0 — OCÉANO SALVAJE</h1>
+  <div class="title-stats">
+    <div class="title-stat">DÍAS: <span id="dayDisplay">1</span></div>
+    <div class="title-stat">MUERTES: <span id="deathDisplay">0</span></div>
+    <div class="title-stat">TROFEOS: <span id="trophyDisplay">0</span></div>
+  </div>
+  <div class="coins-display">
+    <div class="coin-icon"></div>
+    <span id="coinDisplay">250</span> MONEDAS
+  </div>
+</div>
+
+<!-- TANK TABS -->
+<div class="tank-tabs" id="tankTabs">
+  <div class="tank-tab active" onclick="switchTank(0)" id="tab0">🐠 PECERA 1</div>
+  <div class="tank-tab locked" onclick="unlockTank(1)" id="tab1">🔒 PECERA 2 (500🪙)</div>
+  <div class="tank-tab locked" onclick="unlockTank(2)" id="tab2">🔒 ARRECIFE (1200🪙)</div>
+</div>
+
+<div class="game-wrapper">
+  <!-- AQUARIUM -->
+  <div class="aquarium-container">
+    <div class="tank-frame" id="tankFrame">
+      <canvas id="tankCanvas"></canvas>
+      <div class="danger-flash" id="dangerFlash"></div>
+    </div>
+
+    <div class="action-bar">
+      <button class="btn-pixel btn-feed" onclick="feedFish()">🍔 ALIMENTAR (-5🪙)</button>
+      <button class="btn-pixel btn-clean" onclick="cleanTank()">🧹 LIMPIAR (-10🪙)</button>
+      <button class="btn-pixel btn-light" onclick="toggleLight()" id="btnLight">💡 LUZ OFF</button>
+      <button class="btn-pixel btn-shop" onclick="openShop()">🐟 PECES</button>
+      <button class="btn-pixel btn-coral" onclick="openCoralShop()">🪸 CORALES</button>
+      <button class="btn-pixel btn-trophy" onclick="openTrophies()">🏆 TROFEOS</button>
+    </div>
+
+    <div class="status-bar">
+      <div class="stat-block">
+        <div class="stat-label">COMIDA</div>
+        <div class="stat-bar-outer">
+          <div class="stat-bar-inner bar-food" id="barFood" style="width:70%"></div>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-label">LIMPIEZA</div>
+        <div class="stat-bar-outer">
+          <div class="stat-bar-inner bar-clean" id="barClean" style="width:100%"></div>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-label">FELICIDAD</div>
+        <div class="stat-bar-outer">
+          <div class="stat-bar-inner bar-happy" id="barHappy" style="width:80%"></div>
+        </div>
+      </div>
+      <div class="stat-block">
+        <div class="stat-label">PELIGRO</div>
+        <div class="stat-bar-outer">
+          <div class="stat-bar-inner bar-danger" id="barDanger" style="width:0%"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDE PANEL -->
+  <div class="side-panel">
+    <div class="panel-box">
+      <div class="panel-title">🐟 VIVOS <span class="fish-count-badge" id="fishCountBadge">0</span> 💀 <span class="dead-count-badge" id="deadCountBadge">0</span></div>
+      <div id="fishList"></div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">🪸 CORALES</div>
+      <div id="coralList" style="font-size:5px;color:#ff9999;min-height:30px;text-align:center;padding-top:4px">Sin corales</div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">📊 STATS</div>
+      <div class="stats-grid">
+        <div class="stat-mini">Peces:<span id="statTotal">0</span></div>
+        <div class="stat-mini">Muertos:<span id="statDead">0</span></div>
+        <div class="stat-mini">Comidos:<span id="statEaten">0</span></div>
+        <div class="stat-mini">Record:<span id="statRecord">0</span></div>
+        <div class="stat-mini">Días:<span id="statDays">1</span></div>
+        <div class="stat-mini">Monedas+:<span id="statEarned">0</span></div>
+      </div>
+    </div>
+    <div class="panel-box">
+      <div class="panel-title">📋 REGISTRO</div>
+      <div class="log-box" id="logBox"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FISH SHOP MODAL -->
+<div class="modal-overlay" id="shopModal">
+  <div class="shop-modal">
+    <div class="shop-header">
+      <h2>🐟 TIENDA DE PECES</h2>
+      <button class="btn-close" onclick="closeShop()">✖ CERRAR</button>
+    </div>
+    <div class="shop-grid" id="shopGrid"></div>
+  </div>
+</div>
+
+<!-- CORAL SHOP MODAL -->
+<div class="modal-overlay" id="coralModal">
+  <div class="shop-modal">
+    <div class="shop-header">
+      <h2>🪸 TIENDA DE CORALES</h2>
+      <button class="btn-close" onclick="closeCoralShop()">✖ CERRAR</button>
+    </div>
+    <div class="coral-grid" id="coralGrid"></div>
+  </div>
+</div>
+
+<!-- TROPHY MODAL -->
+<div class="modal-overlay" id="trophyModal">
+  <div class="trophy-modal-inner">
+    <div class="shop-header">
+      <h2>🏆 SALA DE TROFEOS</h2>
+      <button class="btn-close" onclick="closeTrophies()">✖ CERRAR</button>
+    </div>
+    <div class="trophy-grid-big" id="trophyGridBig"></div>
+  </div>
+</div>
+
+<!-- NOTIFICATION -->
+<div class="notification" id="notification"></div>
+
+<script>
+// ===================== CONSTANTS =====================
+const TANK_THEMES = [
+  { name: 'Pecera 1', sandColor: [180,140,60], bgTop: '#001a40', bgBot: '#000a1a', price: 0 },
+  { name: 'Pecera 2', sandColor: [80,120,160], bgTop: '#002040', bgBot: '#000a20', price: 500 },
+  { name: 'Arrecife', sandColor: [200,160,80], bgTop: '#002a20', bgBot: '#000a08', price: 1200 },
+];
+
+// ===================== GAME STATE =====================
+const state = {
+  coins: 250,
+  food: 70,
+  clean: 100,
+  happy: 80,
+  danger: 0,
+  lightsOn: true,
+  fish: [],
+  deadFish: [],  // floating dead fish
+  corals: [],
+  nextId: 0,
+  dayCount: 1,
+  bubbles: [],
+  foodParticles: [],
+  currentTank: 0,
+  unlockedTanks: [true, false, false],
+  stats: {
+    totalBought: 0,
+    totalDead: 0,
+    totalEaten: 0,
+    maxAlive: 0,
+    totalEarned: 0,
+  },
+  trophies: {},
+  killCombo: 0,
+  killComboTimer: 0,
+  bloodParticles: [],
+  deathFloaters: [],
+};
+
+// ===================== FISH CATALOG =====================
+const FISH_CATALOG = [
+  { id:'goldfish',   emoji:'🐟', name:'Pez Dorado',    rarity:'common',   price:20,  speed:1.2, size:18, color:'#ffaa00', desc:'El clásico. Fácil de cuidar.', predator:false, isPrey:true, coinsPerMin:3 },
+  { id:'clownfish',  emoji:'🐠', name:'Pez Payaso',    rarity:'rare',     price:50,  speed:1.5, size:20, color:'#ff6600', desc:'Simpático y colorido.', predator:false, isPrey:true, coinsPerMin:6 },
+  { id:'blowfish',   emoji:'🐡', name:'Pez Globo',     rarity:'rare',     price:65,  speed:0.7, size:22, color:'#ffcc44', desc:'Lento. Se infla si hay peligro.', predator:false, isPrey:false, coinsPerMin:7 },
+  { id:'shark',      emoji:'🦈', name:'TIBURÓN',       rarity:'predator', price:150, speed:2.5, size:30, color:'#8899aa', desc:'⚠️ COME PECES PEQUEÑOS. Muy rápido.', predator:true, isPrey:false, coinsPerMin:12, preySize:25 },
+  { id:'whale',      emoji:'🐋', name:'Ballenita',     rarity:'legend',   price:300, speed:0.6, size:40, color:'#5577aa', desc:'Rara y majestuosa.', predator:false, isPrey:false, coinsPerMin:20 },
+  { id:'octopus',    emoji:'🐙', name:'Pulpito',       rarity:'epic',     price:150, speed:1.0, size:26, color:'#cc66aa', desc:'Zigzag. Atrapa cangrejos.', predator:true, isPrey:false, coinsPerMin:10, preySize:20 },
+  { id:'starfish',   emoji:'⭐', name:'Estrella Mar',  rarity:'rare',     price:80,  speed:0.4, size:20, color:'#ffaa33', desc:'Lenta pero bonita.', predator:false, isPrey:true, coinsPerMin:5 },
+  { id:'crab',       emoji:'🦀', name:'Cangrejo',      rarity:'common',   price:30,  speed:0.7, size:16, color:'#ff4422', desc:'Camina raro. Vive en el fondo.', predator:false, isPrey:true, coinsPerMin:3 },
+  { id:'seahorse',   emoji:'🦄', name:'Caballito Mar', rarity:'epic',     price:100, speed:0.8, size:22, color:'#ff88cc', desc:'Elegante. Muy valioso.', predator:false, isPrey:true, coinsPerMin:8 },
+  { id:'jellyfish',  emoji:'🪼', name:'Medusa',        rarity:'rare',     price:60,  speed:0.5, size:20, color:'#aa44ff', desc:'Flota. Paraliza pequeños.', predator:true, isPrey:false, coinsPerMin:5, preySize:18 },
+  { id:'dolphin',    emoji:'🐬', name:'Delfín',        rarity:'legend',   price:250, speed:3.0, size:30, color:'#6699cc', desc:'El más veloz. Salta.', predator:false, isPrey:false, coinsPerMin:18 },
+  { id:'turtle',     emoji:'🐢', name:'Tortuga',       rarity:'common',   price:40,  speed:0.5, size:24, color:'#33aa44', desc:'Muy resistente. Larga vida.', predator:false, isPrey:false, coinsPerMin:4 },
+  { id:'orca',       emoji:'🐳', name:'ORCA',          rarity:'predator', price:400, speed:2.0, size:42, color:'#223344', desc:'⚠️ APEX PREDADOR. Come todo.', predator:true, isPrey:false, coinsPerMin:25, preySize:99 },
+  { id:'anglerfish', emoji:'🎣', name:'Pez Linterna',  rarity:'epic',     price:180, speed:0.9, size:28, color:'#226644', desc:'⚠️ Caza de noche. Invisible.', predator:true, isPrey:false, coinsPerMin:11, preySize:22 },
+];
+
+// ===================== CORAL CATALOG =====================
+const CORAL_CATALOG = [
+  { id:'coral_red',    emoji:'🪸', name:'Coral Rojo',     price:40,  desc:'Bonito. +2🪙/min pasivo.', bonus:'coins', bonusAmt:2, size:32 },
+  { id:'coral_brain',  emoji:'🧠', name:'Coral Cerebro',  price:60,  desc:'Ralentiza predadores -15%.', bonus:'slowPred', bonusAmt:0.15, size:28 },
+  { id:'coral_tube',   emoji:'🌊', name:'Coral Tubo',     price:50,  desc:'Escondite. Peces presas sobreviven más.', bonus:'shelter', bonusAmt:0.2, size:30 },
+  { id:'coral_fan',    emoji:'🌺', name:'Coral Abanico',  price:80,  desc:'+10% felicidad máxima.', bonus:'happy', bonusAmt:10, size:35 },
+  { id:'coral_fire',   emoji:'🔥', name:'Coral Fuego',    price:120, desc:'Daña predadores al tocarlo.', bonus:'spiky', bonusAmt:15, size:26 },
+  { id:'anemone',      emoji:'🌸', name:'Anémona',        price:90,  desc:'Escudo para peces payaso.', bonus:'clown', bonusAmt:1, size:30 },
+  { id:'seagrass',     emoji:'🌿', name:'Pradera Marina', price:35,  desc:'+limpieza pasiva lenta.', bonus:'clean', bonusAmt:0.5, size:40 },
+  { id:'barnacle',     emoji:'⛩️', name:'Algas Piedra',   price:25,  desc:'Barato. Da escondite a cangrejos.', bonus:'crab', bonusAmt:0.3, size:20 },
+];
+
+// ===================== TROPHIES =====================
+const TROPHY_DEFS = [
+  { id:'first_fish',   icon:'🐟', name:'Primer Pez',      desc:'Compra tu primer pez.',         check: s => s.stats.totalBought >= 1 },
+  { id:'hatchery',     icon:'🐠', name:'Criadero',        desc:'Ten 5 peces al mismo tiempo.',  check: s => s.fish.length >= 5 },
+  { id:'reef',         icon:'🪸', name:'Arrecife',        desc:'Coloca 3 corales.',             check: s => s.corals.length >= 3 },
+  { id:'first_death',  icon:'💀', name:'Primera Víctima', desc:'Pierde tu primer pez.',         check: s => s.stats.totalDead >= 1 },
+  { id:'first_kill',   icon:'🦈', name:'El Depredador',   desc:'Un predador come su primer pez.',check:s => s.stats.totalEaten >= 1 },
+  { id:'bloodbath',    icon:'🩸', name:'Baño de Sangre',  desc:'Un predador come 5 peces.',     check: s => s.stats.totalEaten >= 5 },
+  { id:'survivor',     icon:'🛡️', name:'Sobreviviente',   desc:'Un pez presa vive 5 minutos con un predador.',check:s=>s._survivorCheck||false },
+  { id:'millionaire',  icon:'💰', name:'Millonario',      desc:'Acumula 1000 monedas.',         check: s => s.coins >= 1000 },
+  { id:'legend_owner', icon:'⭐', name:'Leyenda',         desc:'Compra un pez legendario.',     check: s => s.fish.some(f=>f.rarity==='legend')||s._hadLegend },
+  { id:'full_tank',    icon:'🌊', name:'Pecera Llena',    desc:'Ten 12 peces al mismo tiempo.', check: s => s.fish.length >= 12 },
+  { id:'graveyard',    icon:'⚰️', name:'Cementerio',      desc:'Pierde 10 peces.',              check: s => s.stats.totalDead >= 10 },
+  { id:'day_10',       icon:'📅', name:'Veterano',        desc:'Sobrevive 10 días de juego.',   check: s => s.dayCount >= 10 },
+  { id:'coral_garden', icon:'🌺', name:'Jardín Coral',    desc:'Coloca 6 corales.',             check: s => s.corals.length >= 6 },
+  { id:'apex',         icon:'🐳', name:'APEX',            desc:'Compra una Orca.',              check: s => s.fish.some(f=>f.id==='orca')||s._hadOrca },
+  { id:'night_watch',  icon:'🌙', name:'Guardia Nocturna',desc:'Apaga las luces 3 veces.',      check: s => (s._lightOffCount||0) >= 3 },
+  { id:'clean_freak',  icon:'🧹', name:'Obsesión Limpia', desc:'Limpia la pecera 10 veces.',    check: s => (s._cleanCount||0) >= 10 },
+];
+
+// ===================== CANVAS SETUP =====================
+const canvas = document.getElementById('tankCanvas');
+const ctx = canvas.getContext('2d');
+let W, H;
+
+function resizeCanvas() {
+  W = canvas.offsetWidth;
+  H = canvas.offsetHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+// ===================== FISH CLASS =====================
+class Fish {
+  constructor(template) {
+    Object.assign(this, template);
+    this.uid = state.nextId++;
+    this.x = rand(80, W - 80);
+    this.y = rand(60, H - 80);
+    this.vx = (Math.random()-0.5) * this.speed * 1.5;
+    this.vy = (Math.random()-0.5) * this.speed * 0.7;
+    this.facing = this.vx > 0 ? 1 : -1;
+    this.hunger = 100;
+    this.health = 100;
+    this.happiness = 80;
+    this.age = 0;
+    this.wobble = 0;
+    this.wobbleSpeed = 2 + Math.random() * 2;
+    this.bubbleTimer = rand(100, 300);
+    this.targetX = null;
+    this.targetY = null;
+    this.specialTimer = rand(200, 500);
+    this.bobDir = 1;
+    this.sinOffset = Math.random() * Math.PI * 2;
+    this.scale = 1;
+    this.scaleAnim = 0;
+    this.alive = true;
+    this.aliveTime = 0;
+    this.huntTimer = 0;
+    this.huntTarget = null;
+    this.fearTimer = 0;
+    this.fearTarget = null;
+    this.inflated = false;
+    this.inflateTimer = 0;
+    this.eatsCount = 0;
+    this.slowMult = 1.0;
+  }
+
+  update(dt) {
+    if (!this.alive) return;
+    this.age++;
+    this.aliveTime++;
+    this.wobble += 0.08;
+    this.sinOffset += 0.02;
+    this.specialTimer--;
+    if (this.huntTimer > 0) this.huntTimer--;
+    if (this.fearTimer > 0) this.fearTimer--;
+    if (this.inflateTimer > 0) this.inflateTimer--;
+    else this.inflated = false;
+
+    // Hunger decay
+    if (this.age % 300 === 0) {
+      this.hunger = Math.max(0, this.hunger - (this.predator ? 4 : 1));
+      if (this.hunger < 30) this.health = Math.max(0, this.health - 1);
+    }
+
+    // PREDATOR HUNT LOGIC
+    if (this.predator && this.huntTimer <= 0) {
+      let closestPrey = null;
+      let closestDist = 999;
+      for (let other of state.fish) {
+        if (!other.alive || other === this) continue;
+        if (!other.isPrey && other.size >= this.size) continue;
+        if (other.id === 'blowfish' && other.inflated) continue; // can't eat inflated blowfish
+        const dx = other.x - this.x, dy = other.y - this.y;
+        const d = Math.sqrt(dx*dx+dy*dy);
+        const eatRange = this.id === 'orca' ? 999 : (this.preySize || 25);
+        if (other.size <= eatRange && d < closestDist) {
+          closestDist = d;
+          closestPrey = other;
+        }
+      }
+      if (closestPrey && closestDist < 200) {
+        this.huntTarget = closestPrey;
+        const dx = closestPrey.x - this.x, dy = closestPrey.y - this.y;
+        const d = Math.sqrt(dx*dx+dy*dy);
+        const sp = this.speed * (this.slowMult || 1);
+        this.vx += (dx/d) * sp * 0.4;
+        this.vy += (dy/d) * sp * 0.2;
+        // Kill if close enough
+        if (d < this.size + closestPrey.size * 0.5) {
+          this.killFish(closestPrey);
+        }
+      }
+    }
+
+    // PREY FEAR LOGIC
+    if (this.isPrey && this.fearTimer <= 0) {
+      for (let pred of state.fish) {
+        if (!pred.alive || !pred.predator) continue;
+        const dx = this.x - pred.x, dy = this.y - pred.y;
+        const d = Math.sqrt(dx*dx+dy*dy);
+        if (d < 120) {
+          // Run away!
+          const sp = this.speed * 2;
+          this.vx += (dx/d) * sp * 0.5;
+          this.vy += (dy/d) * sp * 0.3;
+          this.fearTimer = 30;
+          // Blowfish inflates!
+          if (this.id === 'blowfish') {
+            this.inflated = true;
+            this.inflateTimer = 180;
+          }
+        }
+      }
+    }
+
+    // Special behaviors
+    if (this.id === 'dolphin' && this.specialTimer <= 0) {
+      this.vy = -this.speed * 3;
+      this.specialTimer = rand(300, 600);
+    }
+    if (this.id === 'jellyfish') {
+      this.vy = Math.sin(this.sinOffset) * 0.4;
+    }
+    if (this.id === 'seahorse') {
+      this.vy = Math.sin(this.sinOffset) * this.speed * 0.5;
+      this.vx *= 0.95;
+      if (Math.abs(this.vx) < 0.1) this.vx = (Math.random()-0.5) * this.speed;
+    }
+    if (this.id === 'crab') {
+      if (this.y > H - 45) { this.y = H - 45; this.vy = -0.5; }
+      if (Math.random() < 0.01) this.vx = (Math.random()-0.5) * this.speed * 2;
+    }
+    if (this.id === 'starfish') {
+      this.x += Math.sin(this.sinOffset * 0.3) * 0.2;
+      this.y += Math.cos(this.sinOffset * 0.2) * 0.2;
+    }
+    if (this.id === 'anglerfish') {
+      // anglerfish slower in light
+      this.slowMult = state.lightsOn ? 0.6 : 1.4;
+    }
+
+    // Movement
+    const spdMod = this.inflated ? 0.3 : 1.0;
+    this.x += this.vx * spdMod;
+    this.y += this.vy * spdMod;
+
+    // Speed cap
+    const maxSpd = this.speed * 2.8;
+    const spd = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+    if (spd > maxSpd) { this.vx = (this.vx/spd)*maxSpd; this.vy = (this.vy/spd)*maxSpd; }
+
+    if (this.vx > 0.1) this.facing = 1;
+    else if (this.vx < -0.1) this.facing = -1;
+
+    // Wall bounce
+    if (this.x < this.size) { this.x = this.size; this.vx = Math.abs(this.vx) + 0.1; this.facing = 1; }
+    if (this.x > W - this.size) { this.x = W - this.size; this.vx = -(Math.abs(this.vx) + 0.1); this.facing = -1; }
+    if (this.y < this.size) { this.y = this.size; this.vy = Math.abs(this.vy); }
+    if (this.y > H - this.size - 10) { this.y = H - this.size - 10; this.vy = -(Math.abs(this.vy)); }
+
+    // Random direction changes
+    if (Math.random() < 0.005) {
+      this.vx += (Math.random()-0.5) * this.speed;
+      this.vy += (Math.random()-0.5) * this.speed * 0.5;
+    }
+
+    // Bubbles
+    this.bubbleTimer--;
+    if (this.bubbleTimer <= 0) {
+      spawnBubble(this.x, this.y - this.size * 0.6);
+      this.bubbleTimer = rand(150, 400);
+    }
+
+    // Target food
+    if (!this.predator) {
+      for (let fp of state.foodParticles) {
+        const dx = fp.x - this.x, dy = fp.y - this.y;
+        const d = Math.sqrt(dx*dx+dy*dy);
+        if (d < 28) {
+          this.hunger = Math.min(100, this.hunger + 15);
+          fp.eaten = true;
+          this.scaleAnim = 10;
+          spawnBubble(this.x, this.y);
+        } else if (d < 110) {
+          this.vx += (dx/d) * 0.3;
+          this.vy += (dy/d) * 0.2;
+        }
+      }
+    }
+
+    if (this.scaleAnim > 0) {
+      this.scale = 1 + Math.sin(this.scaleAnim * 0.5) * 0.2;
+      this.scaleAnim--;
+    } else { this.scale = this.inflated ? 1.8 : 1; }
+  }
+
+  killFish(prey) {
+    if (!prey.alive) return;
+    prey.alive = false;
+    this.hunger = Math.min(100, this.hunger + 40);
+    this.eatsCount++;
+    this.huntTimer = 180;
+    state.stats.totalEaten++;
+
+    // Blood particles
+    for (let i = 0; i < 12; i++) {
+      state.bloodParticles.push({
+        x: prey.x + (Math.random()-0.5)*20,
+        y: prey.y + (Math.random()-0.5)*20,
+        vx: (Math.random()-0.5)*3,
+        vy: (Math.random()-0.5)*3 - 1,
+        life: 1.0,
+        r: rand(3,8),
+      });
+    }
+
+    // Death floater
+    state.deathFloaters.push({
+      x: prey.x,
+      y: prey.y,
+      emoji: prey.emoji,
+      vy: -0.3,
+      life: 1.0,
+      age: 0,
+    });
+
+    state.stats.totalDead++;
+    log(`⚔️ ${this.emoji} ${this.name} devoró a ${prey.emoji} ${prey.name}!`, 'log-death');
+    notify(`💀 ${prey.emoji} ${prey.name} fue devorado por ${this.emoji}!`, '#ff2244');
+
+    // Kill combo
+    state.killCombo++;
+    state.killComboTimer = 180;
+    if (state.killCombo >= 2) {
+      showCombo(state.killCombo);
+    }
+
+    // Coins for kills (predator earns)
+    state.coins += 10;
+    log(`🪙 +10 monedas por eliminación`, 'log-trophy');
+
+    // Remove from fish array
+    state.fish = state.fish.filter(f => f !== prey);
+    checkTrophies();
+  }
+
+  draw() {
+    if (!this.alive) return;
+    ctx.save();
+    ctx.translate(this.x, this.y);
+    ctx.scale(this.facing * this.scale, this.scale);
+
+    // Shadow
+    ctx.save();
+    ctx.translate(4, 6);
+    ctx.globalAlpha = 0.15;
+    ctx.font = `${this.size * 1.5}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.emoji, 0, 0);
+    ctx.restore();
+
+    // Fish wobble
+    ctx.rotate(Math.sin(this.wobble * this.wobbleSpeed) * 0.12);
+
+    // Glow for legendary
+    if (this.rarity === 'legend') {
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 15 + Math.sin(this.wobble) * 5;
+    }
+    // Red glow for predator
+    if (this.rarity === 'predator') {
+      ctx.shadowColor = '#ff0000';
+      ctx.shadowBlur = 10 + Math.sin(this.wobble * 2) * 6;
+    }
+
+    // Draw emoji fish
+    ctx.font = `${this.size * 1.5}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(this.emoji, 0, 0);
+
+    // Predator skull indicator
+    if (this.predator) {
+      ctx.font = '8px serif';
+      ctx.fillText('💀', this.size * 0.7, -this.size * 0.7);
+    }
+
+    // Health bar if sick
+    if (this.health < 70) {
+      ctx.fillStyle = '#220000';
+      ctx.fillRect(-this.size, -this.size - 8, this.size * 2, 5);
+      ctx.fillStyle = this.health < 30 ? '#ff0000' : '#ff8800';
+      ctx.fillRect(-this.size, -this.size - 8, (this.size * 2) * (this.health / 100), 5);
+    }
+
+    // Hunger indicator
+    if (this.hunger < 40) {
+      ctx.font = '10px serif';
+      ctx.fillText('❗', this.size - 4, -this.size);
+    }
+
+    ctx.restore();
+  }
+}
+
+// ===================== PARTICLES =====================
+function spawnBubble(x, y) {
+  state.bubbles.push({ x, y, r: rand(3, 8), life: 1.0, speed: rand(1, 3) * 0.5 });
+}
+
+function spawnFood(x, y) {
+  for (let i = 0; i < 5; i++) {
+    state.foodParticles.push({
+      x: x + (Math.random()-0.5)*20,
+      y: y,
+      vy: rand(1, 3) * 0.3,
+      eaten: false,
+      life: 1.0,
+    });
+  }
+}
+
+// ===================== DRAW BACKGROUND =====================
+function drawBackground() {
+  const theme = TANK_THEMES[state.currentTank];
+  const grad = ctx.createLinearGradient(0, 0, 0, H);
+  grad.addColorStop(0, theme.bgTop);
+  grad.addColorStop(0.5, theme.bgTop.replace('40','30'));
+  grad.addColorStop(1, theme.bgBot);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, W, H);
+
+  // Light rays
+  if (state.lightsOn) {
+    ctx.save();
+    for (let i = 0; i < 4; i++) {
+      const rx = 60 + i * (W/4);
+      const anim = 0.06 + Math.sin(Date.now() * 0.001 + i) * 0.02;
+      const grad2 = ctx.createLinearGradient(rx, 0, rx + 40, H);
+      grad2.addColorStop(0, `rgba(0,150,255,${anim})`);
+      grad2.addColorStop(1, 'transparent');
+      ctx.fillStyle = grad2;
+      ctx.beginPath();
+      ctx.moveTo(rx - 10, 0);
+      ctx.lineTo(rx + 50, 0);
+      ctx.lineTo(rx + 80, H);
+      ctx.lineTo(rx + 20, H);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // Sand floor
+  const [sr, sg, sb] = theme.sandColor;
+  for (let sx = 0; sx < W; sx += 8) {
+    const sh = 22 + Math.sin(sx * 0.05) * 7;
+    const bright = 0.5 + Math.random() * 0.08;
+    ctx.fillStyle = `rgb(${Math.floor(sr*bright)},${Math.floor(sg*bright)},${Math.floor(sb*bright)})`;
+    ctx.fillRect(sx, H - sh, 8, sh);
+  }
+
+  // Rocks
+  drawPixelRock(40, H - 32, 24);
+  drawPixelRock(W - 60, H - 28, 30);
+  drawPixelRock(W/2 - 10, H - 24, 20);
+  drawPixelRock(W * 0.7, H - 26, 16);
+
+  // Seaweed (varies by tank)
+  const weedColor = state.currentTank === 2 ? '#00cc44' : '#00aa44';
+  drawSeaweed(100, H - 30, 60, weedColor);
+  drawSeaweed(220, H - 28, 50, weedColor + 'cc');
+  drawSeaweed(W-150, H - 32, 65, weedColor);
+  drawSeaweed(W-280, H - 28, 45, weedColor + 'aa');
+  drawSeaweed(W*0.45, H - 26, 40, weedColor + 'bb');
+
+  // CORALS
+  drawCorals();
+
+  // Dirty effect
+  if (state.clean < 50) {
+    ctx.fillStyle = `rgba(100,80,0,${(50 - state.clean) / 200})`;
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = 'rgba(0,100,0,0.3)';
+    for (let i = 0; i < 10; i++) {
+      ctx.fillRect(
+        (i * 127 + Date.now() * 0.01) % W,
+        (i * 89 + 20) % H,
+        4, 4
+      );
+    }
+  }
+
+  // Surface shimmer
+  if (state.lightsOn) {
+    ctx.save();
+    const surfGrad = ctx.createLinearGradient(0, 0, W, 8);
+    for (let i = 0; i < 5; i++) {
+      const p = (i / 5) + ((Date.now() * 0.0003) % 0.2);
+      surfGrad.addColorStop(p % 1, 'rgba(100,200,255,0.6)');
+      surfGrad.addColorStop((p + 0.1) % 1, 'rgba(50,150,255,0.2)');
+    }
+    ctx.fillStyle = surfGrad;
+    ctx.fillRect(0, 0, W, 6);
+    ctx.restore();
+  }
+}
+
+function drawCorals() {
+  const floorY = H - 24;
+  for (let c of state.corals) {
+    ctx.save();
+    const sway = Math.sin(Date.now() * 0.001 + c.id * 0.7) * 3;
+    ctx.translate(c.x + sway * 0.3, floorY);
+    ctx.font = `${c.size || 28}px serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    // Glow for fire coral
+    if (c.type === 'coral_fire') {
+      ctx.shadowColor = '#ff4400';
+      ctx.shadowBlur = 10 + Math.sin(Date.now() * 0.005) * 5;
+    }
+    ctx.fillText(c.emoji, 0, 0);
+    ctx.restore();
+  }
+}
+
+function drawPixelRock(cx, cy, size) {
+  const colors = ['#445566', '#334455', '#556677'];
+  const ps = 4;
+  const grid = [
+    [0,1,1,1,0],
+    [1,1,1,1,1],
+    [1,1,1,1,1],
+    [0,1,1,1,0],
+    [0,0,1,0,0],
+  ];
+  for (let gy = 0; gy < grid.length; gy++) {
+    for (let gx = 0; gx < grid[gy].length; gx++) {
+      if (grid[gy][gx]) {
+        ctx.fillStyle = colors[(gx + gy) % colors.length];
+        ctx.fillRect(cx + gx * ps - size/2, cy + gy * ps - size/2, ps, ps);
+      }
+    }
+  }
+}
+
+function drawSeaweed(x, baseY, height, color) {
+  const t = Date.now() * 0.001;
+  const segments = Math.floor(height / 8);
+  for (let i = 0; i < segments; i++) {
+    const segY = baseY - i * 8;
+    const wave = Math.sin(t + i * 0.5) * (i * 1.2);
+    ctx.fillStyle = i % 2 === 0 ? color : (color.replace('#','#0'));
+    ctx.fillRect(x + wave - 3, segY, 6, 8);
+  }
+}
+
+// ===================== DRAW BUBBLES & FOOD =====================
+function drawBubbles() {
+  for (let b of state.bubbles) {
+    ctx.save();
+    ctx.globalAlpha = b.life * 0.6;
+    ctx.strokeStyle = 'rgba(150,220,255,0.8)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.globalAlpha = b.life * 0.15;
+    ctx.fillStyle = '#80ddff';
+    ctx.fill();
+    ctx.restore();
+    b.y -= b.speed;
+    b.life -= 0.01;
+  }
+  state.bubbles = state.bubbles.filter(b => b.life > 0);
+}
+
+function drawFoodParticles() {
+  for (let fp of state.foodParticles) {
+    if (fp.eaten) continue;
+    ctx.save();
+    ctx.globalAlpha = fp.life;
+    ctx.fillStyle = '#cc8800';
+    ctx.strokeStyle = '#ffaa00';
+    ctx.lineWidth = 1;
+    ctx.fillRect(fp.x - 3, fp.y - 3, 6, 6);
+    ctx.strokeRect(fp.x - 3, fp.y - 3, 6, 6);
+    ctx.restore();
+    fp.y += fp.vy;
+    fp.vy += 0.05;
+    fp.life -= 0.003;
+    if (fp.y > H - 20) { fp.life -= 0.05; }
+  }
+  state.foodParticles = state.foodParticles.filter(fp => !fp.eaten && fp.life > 0);
+}
+
+function drawBloodParticles() {
+  for (let b of state.bloodParticles) {
+    ctx.save();
+    ctx.globalAlpha = b.life * 0.8;
+    ctx.fillStyle = `rgba(220,0,30,${b.life})`;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, b.r, 0, Math.PI*2);
+    ctx.fill();
+    ctx.restore();
+    b.x += b.vx;
+    b.y += b.vy;
+    b.vy += 0.05;
+    b.life -= 0.025;
+  }
+  state.bloodParticles = state.bloodParticles.filter(b => b.life > 0);
+}
+
+function drawDeathFloaters() {
+  for (let d of state.deathFloaters) {
+    d.age++;
+    d.y += d.vy;
+    if (d.y < 30) { d.vy = 0.2; } // bounce at surface
+    d.life -= 0.002;
+
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, d.life * 3) * 0.85;
+    ctx.translate(d.x, d.y);
+    // Floating rotation
+    ctx.rotate(Math.sin(d.age * 0.03) * 0.4);
+    ctx.font = '18px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    // Grayscale dead fish
+    ctx.filter = 'grayscale(1) brightness(0.7)';
+    ctx.fillText(d.emoji, 0, 0);
+    // X eyes
+    ctx.filter = 'none';
+    ctx.font = '8px serif';
+    ctx.fillText('✕', 2, -2);
+    ctx.restore();
+  }
+  state.deathFloaters = state.deathFloaters.filter(d => d.life > 0);
+}
+
+// ===================== MAIN LOOP =====================
+let lastTime = 0;
+function gameLoop(ts) {
+  const dt = ts - lastTime;
+  lastTime = ts;
+
+  ctx.clearRect(0, 0, W, H);
+  drawBackground();
+  drawBubbles();
+  drawFoodParticles();
+  drawBloodParticles();
+  drawDeathFloaters();
+
+  for (let fish of state.fish) {
+    fish.update(dt);
+    fish.draw();
+  }
+
+  // Kill combo timer
+  if (state.killComboTimer > 0) {
+    state.killComboTimer--;
+    if (state.killComboTimer <= 0) state.killCombo = 0;
+  }
+
+  updateUI();
+  requestAnimationFrame(gameLoop);
+}
+requestAnimationFrame(gameLoop);
+
+// ===================== UI UPDATES =====================
+function updateUI() {
+  // Passive decays
+  if (Math.random() < 0.001) state.food = Math.max(0, state.food - 1);
+  if (Math.random() < 0.0005) state.clean = Math.max(0, state.clean - 1);
+  if (state.food < 30) state.happy = Math.max(0, state.happy - 0.01);
+  if (state.clean < 40) state.happy = Math.max(0, state.happy - 0.005);
+  if (state.food > 60 && state.clean > 60) state.happy = Math.min(100, state.happy + 0.003);
+
+  // Danger = based on predators vs prey
+  const predCount = state.fish.filter(f=>f.predator).length;
+  const preyCount = state.fish.filter(f=>f.isPrey).length;
+  state.danger = predCount > 0 ? Math.min(100, (predCount / Math.max(1, preyCount)) * 50 + predCount * 10) : 0;
+
+  // Coral bonuses
+  for (let c of state.corals) {
+    if (c.bonus === 'clean') state.clean = Math.min(100, state.clean + 0.001);
+  }
+
+  setBar('barFood', state.food);
+  setBar('barClean', state.clean);
+  setBar('barHappy', state.happy);
+  document.getElementById('barDanger').style.width = state.danger + '%';
+
+  // Danger flash
+  const df = document.getElementById('dangerFlash');
+  if (state.danger > 60) df.classList.add('alert');
+  else df.classList.remove('alert');
+
+  updateFishList();
+  document.getElementById('coinDisplay').textContent = state.coins;
+  document.getElementById('dayDisplay').textContent = state.dayCount;
+  document.getElementById('deathDisplay').textContent = state.stats.totalDead;
+  document.getElementById('trophyDisplay').textContent = Object.keys(state.trophies).length;
+
+  // Stats mini
+  document.getElementById('statTotal').textContent = state.fish.length;
+  document.getElementById('statDead').textContent = state.stats.totalDead;
+  document.getElementById('statEaten').textContent = state.stats.totalEaten;
+  document.getElementById('statRecord').textContent = state.stats.maxAlive;
+  document.getElementById('statDays').textContent = state.dayCount;
+  document.getElementById('statEarned').textContent = state.stats.totalEarned;
+
+  if (state.fish.length > state.stats.maxAlive) state.stats.maxAlive = state.fish.length;
+
+  // Predator slow from coral_brain
+  const hasBrainCoral = state.corals.some(c=>c.bonus==='slowPred');
+  for (let f of state.fish) {
+    if (f.predator) f.slowMult = hasBrainCoral ? 0.85 : 1.0;
+  }
+}
+
+function setBar(id, val) {
+  const el = document.getElementById(id);
+  el.style.width = val + '%';
+  if (val < 25) el.style.background = '#ff2244';
+  else if (val < 50) el.style.background = '#ff8800';
+  else {
+    if (id === 'barFood') el.style.background = '#ff8800';
+    else if (id === 'barClean') el.style.background = '#00aaff';
+    else el.style.background = '#ff44aa';
+  }
+}
+
+function updateFishList() {
+  const list = document.getElementById('fishList');
+  const badge = document.getElementById('fishCountBadge');
+  const deadBadge = document.getElementById('deadCountBadge');
+  badge.textContent = state.fish.length;
+  deadBadge.textContent = state.stats.totalDead;
+  list.innerHTML = '';
+  if (state.fish.length === 0) {
+    list.innerHTML = '<div style="font-size:5.5px;color:#335577;padding:6px;text-align:center">¡Visita la tienda!</div>';
+    return;
+  }
+  for (let f of state.fish) {
+    const div = document.createElement('div');
+    div.className = 'fish-list-item';
+    const healthClass = f.health > 60 ? 'dot-healthy' : f.health > 30 ? 'dot-ok' : 'dot-sick';
+    const predIcon = f.predator ? '⚔️' : '';
+    div.innerHTML = `<span class="emoji">${f.emoji}</span><span>${predIcon}${f.name.split(' ')[0]}</span><div class="fish-health-dot ${healthClass}"></div>`;
+    list.appendChild(div);
+  }
+
+  // Coral list
+  const coralList = document.getElementById('coralList');
+  if (state.corals.length === 0) {
+    coralList.textContent = 'Sin corales';
+  } else {
+    coralList.innerHTML = state.corals.map(c=>`${c.emoji} ${c.name}`).join('<br>');
+  }
+}
+
+// ===================== ACTIONS =====================
+function feedFish() {
+  if (state.coins < 5) { notify('💸 ¡Sin monedas!', '#ff4444'); return; }
+  if (state.food >= 100) { notify('🍔 ¡Los peces ya están llenos!', '#ffaa00'); return; }
+  state.coins -= 5;
+  state.food = Math.min(100, state.food + 25);
+  state.happy = Math.min(100, state.happy + 5);
+  const cx = rand(60, W - 60);
+  spawnFood(cx, 10);
+  spawnFood(cx + rand(-30,30), 10);
+  log('🍔 Alimentaste a los peces (-5🪙)');
+  notify('🍔 ¡Peces alimentados!', '#ffaa00');
+}
+
+function cleanTank() {
+  if (state.coins < 10) { notify('💸 ¡Sin monedas!', '#ff4444'); return; }
+  if (state.clean >= 100) { notify('🧹 ¡Ya está limpia!', '#44aaff'); return; }
+  state.coins -= 10;
+  state.clean = Math.min(100, state.clean + 40);
+  state.happy = Math.min(100, state.happy + 8);
+  state._cleanCount = (state._cleanCount || 0) + 1;
+  for (let i = 0; i < 20; i++) spawnBubble(rand(20, W-20), rand(20, H-20));
+  log('🧹 Limpiaste la pecera (-10🪙)');
+  notify('🧹 ¡Pecera reluciente!', '#44aaff');
+  checkTrophies();
+}
+
+function toggleLight() {
+  state.lightsOn = !state.lightsOn;
+  const btn = document.getElementById('btnLight');
+  if (state.lightsOn) {
+    btn.textContent = '💡 LUZ OFF';
+    canvas.style.filter = '';
+    log('💡 Luces encendidas');
+  } else {
+    canvas.style.filter = 'brightness(0.15) saturate(0.4)';
+    btn.textContent = '🌙 LUZ ON';
+    state._lightOffCount = (state._lightOffCount || 0) + 1;
+    log('🌙 Luces apagadas. Peces descansando...');
+    notify('🌙 ¡Buenas noches, peces!', '#aaaaff');
+    checkTrophies();
+  }
+}
+
+// ===================== SHOP =====================
+function openShop() {
+  const grid = document.getElementById('shopGrid');
+  grid.innerHTML = '';
+  for (let fish of FISH_CATALOG) {
+    const canAfford = state.coins >= fish.price;
+    const card = document.createElement('div');
+    card.className = 'shop-card' + (canAfford ? '' : ' cant-afford');
+    card.innerHTML = `
+      <span class="fish-emoji">${fish.emoji}</span>
+      <div class="fish-name">${fish.name}</div>
+      <span class="fish-rarity rarity-${fish.rarity}">${fish.rarity.toUpperCase()}</span>
+      <div class="fish-desc">${fish.desc}</div>
+      ${fish.predator ? `<span class="predator-tag">⚠️ COME PECES</span>` : ''}
+      <div class="fish-speed">⚡ VEL: ${fish.speed.toFixed(1)} | 🪙 ${fish.coinsPerMin}/min</div>
+      <div class="fish-price">🪙 ${fish.price} monedas</div>
+    `;
+    if (canAfford) card.onclick = () => buyFish(fish);
+    grid.appendChild(card);
+  }
+  document.getElementById('shopModal').classList.add('open');
+}
+
+function closeShop() {
+  document.getElementById('shopModal').classList.remove('open');
+}
+
+function buyFish(template) {
+  if (state.coins < template.price) { notify('💸 ¡No tienes suficientes monedas!', '#ff4444'); return; }
+  if (state.fish.length >= 20) { notify('🐟 ¡Pecera llena! Máx 20 peces.', '#ff8800'); return; }
+  state.coins -= template.price;
+  const newFish = new Fish(template);
+  state.fish.push(newFish);
+  state.stats.totalBought++;
+  if (template.rarity === 'legend') state._hadLegend = true;
+  if (template.id === 'orca') state._hadOrca = true;
+  for (let i = 0; i < 10; i++) spawnBubble(newFish.x, newFish.y);
+  log(`🛒 Compraste: ${template.emoji} ${template.name} (-${template.price}🪙)`, template.predator ? 'log-danger' : '');
+  notify(`${template.emoji} ¡${template.name} añadido!`, template.predator ? '#ff4444' : '#00ff88');
+  closeShop();
+  updateUI();
+  awardCoins(template.rarity);
+  checkTrophies();
+}
+
+function awardCoins(rarity) {
+  const awards = { common: 3, rare: 6, epic: 10, legend: 20, predator: 14 };
+  setInterval(() => {
+    if (state.fish.length > 0) {
+      const earned = awards[rarity] || 2;
+      state.coins += earned;
+      state.stats.totalEarned += earned;
+    }
+  }, 15000);
+}
+
+// ===================== CORAL SHOP =====================
+function openCoralShop() {
+  const grid = document.getElementById('coralGrid');
+  grid.innerHTML = '';
+  for (let coral of CORAL_CATALOG) {
+    const canAfford = state.coins >= coral.price;
+    const alreadyHas = state.corals.filter(c=>c.type===coral.id).length;
+    const card = document.createElement('div');
+    card.className = 'coral-card' + (canAfford ? '' : ' cant-afford');
+    card.innerHTML = `
+      <span class="coral-icon">${coral.emoji}</span>
+      <div class="coral-name">${coral.name}</div>
+      <div class="coral-desc">${coral.desc}</div>
+      <div class="coral-price">🪙 ${coral.price} | Tienes: ${alreadyHas}</div>
+    `;
+    if (canAfford) card.onclick = () => buyCoral(coral);
+    grid.appendChild(card);
+  }
+  document.getElementById('coralModal').classList.add('open');
+}
+
+function closeCoralShop() {
+  document.getElementById('coralModal').classList.remove('open');
+}
+
+function buyCoral(template) {
+  if (state.coins < template.price) { notify('💸 ¡Sin monedas!', '#ff4444'); return; }
+  if (state.corals.length >= 10) { notify('🪸 ¡Máximo 10 corales!', '#ff8800'); return; }
+  state.coins -= template.price;
+  // Place coral on the sandy floor
+  const usedX = state.corals.map(c=>c.x);
+  let cx;
+  do { cx = rand(40, W-40); } while (usedX.some(x=>Math.abs(x-cx)<40));
+  state.corals.push({
+    type: template.id,
+    emoji: template.emoji,
+    name: template.name,
+    x: cx,
+    bonus: template.bonus,
+    bonusAmt: template.bonusAmt,
+    size: template.size || 28,
+    id: state.corals.length,
+  });
+  log(`🪸 Coral ${template.name} colocado (-${template.price}🪙)`, 'log-birth');
+  notify(`${template.emoji} ¡${template.name} añadido!`, '#ff9999');
+  closeCoralShop();
+  updateUI();
+  checkTrophies();
+}
+
+// ===================== TROPHIES =====================
+function checkTrophies() {
+  let newTrophy = false;
+  for (let td of TROPHY_DEFS) {
+    if (!state.trophies[td.id] && td.check(state)) {
+      state.trophies[td.id] = true;
+      newTrophy = true;
+      notify(`🏆 TROFEO: ${td.icon} ${td.name}!`, '#ffd700');
+      log(`🏆 Trofeo desbloqueado: ${td.name}!`, 'log-trophy');
+      // Bonus coins for trophy
+      state.coins += 50;
+      log('🪙 +50 monedas por trofeo!', 'log-trophy');
+    }
+  }
+}
+
+function openTrophies() {
+  checkTrophies();
+  const grid = document.getElementById('trophyGridBig');
+  grid.innerHTML = '';
+  let earned = 0;
+  for (let td of TROPHY_DEFS) {
+    const isEarned = !!state.trophies[td.id];
+    if (isEarned) earned++;
+    const div = document.createElement('div');
+    div.className = 'trophy-big-item' + (isEarned ? ' earned' : '');
+    div.innerHTML = `
+      <span class="trophy-big-icon">${td.icon}</span>
+      <div class="trophy-big-name">${td.name}</div>
+      <div class="trophy-big-desc">${td.desc}</div>
+      ${!isEarned ? '<span class="trophy-locked">🔒</span>' : ''}
+    `;
+    grid.appendChild(div);
+  }
+  document.getElementById('trophyModal').classList.add('open');
+}
+
+function closeTrophies() {
+  document.getElementById('trophyModal').classList.remove('open');
+}
+
+// ===================== TANK SYSTEM =====================
+function switchTank(i) {
+  if (!state.unlockedTanks[i]) return;
+  state.currentTank = i;
+  document.querySelectorAll('.tank-tab').forEach((t,j) => {
+    t.classList.toggle('active', j === i);
+  });
+  log(`🌊 Cambiaste a ${TANK_THEMES[i].name}`);
+}
+
+function unlockTank(i) {
+  if (state.unlockedTanks[i]) { switchTank(i); return; }
+  const price = TANK_THEMES[i].price;
+  if (state.coins < price) {
+    notify(`💸 Necesitas ${price}🪙 para desbloquear ${TANK_THEMES[i].name}`, '#ff4444');
+    return;
+  }
+  state.coins -= price;
+  state.unlockedTanks[i] = true;
+  document.getElementById(`tab${i}`).textContent = `🐠 ${TANK_THEMES[i].name}`;
+  document.getElementById(`tab${i}`).classList.remove('locked');
+  notify(`🌊 ¡${TANK_THEMES[i].name} desbloqueada!`, '#00ff88');
+  log(`🌊 Nueva pecera desbloqueada: ${TANK_THEMES[i].name}`, 'log-trophy');
+  switchTank(i);
+}
+
+// ===================== COMBO =====================
+function showCombo(n) {
+  const el = document.getElementById('comboDisplay') || createComboEl();
+  el.textContent = `💀 x${n} COMBO!`;
+  el.classList.add('show');
+  clearTimeout(window._comboTimer);
+  window._comboTimer = setTimeout(() => el.classList.remove('show'), 1500);
+}
+
+function createComboEl() {
+  const el = document.createElement('div');
+  el.id = 'comboDisplay';
+  el.className = 'combo-display';
+  document.querySelector('.aquarium-container').appendChild(el);
+  return el;
+}
+
+// ===================== CLICK TO INTERACT =====================
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const mx = (e.clientX - rect.left) * (W / rect.width);
+  const my = (e.clientY - rect.top) * (H / rect.height);
+  for (let fish of state.fish) {
+    const dx = fish.x - mx, dy = fish.y - my;
+    if (Math.sqrt(dx*dx+dy*dy) < fish.size * 1.5) {
+      fish.happiness = Math.min(100, fish.happiness + 10);
+      fish.scaleAnim = 15;
+      spawnBubble(fish.x, fish.y - fish.size);
+      notify(`${fish.emoji} ¡${fish.name} está feliz! +2❤️`, '#ff88cc');
+      state.happy = Math.min(100, state.happy + 2);
+      return;
+    }
+  }
+  if (state.food > 0) {
+    spawnFood(mx, my);
+  }
+});
+
+// ===================== LOG =====================
+function log(msg, cls='') {
+  const box = document.getElementById('logBox');
+  const now = new Date();
+  const time = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+  const entry = document.createElement('div');
+  entry.className = 'log-entry ' + cls;
+  entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+  box.prepend(entry);
+  if (box.children.length > 30) box.lastChild.remove();
+}
+
+// ===================== NOTIFICATIONS =====================
+function notify(msg, color='#ffd700') {
+  const el = document.getElementById('notification');
+  el.textContent = msg;
+  el.style.borderColor = color;
+  el.style.color = color;
+  el.classList.add('show');
+  clearTimeout(window._notifTimer);
+  window._notifTimer = setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ===================== COIN INCOME =====================
+setInterval(() => {
+  if (state.fish.length > 0) {
+    const earned = state.fish.length;
+    state.coins += earned;
+    state.stats.totalEarned += earned;
+    if (Math.random() < 0.3) log(`🪙 +${earned} monedas por tus peces`);
+    checkTrophies();
+  }
+}, 10000);
+
+// Coral coin bonus
+setInterval(() => {
+  const coralBonus = state.corals.filter(c=>c.bonus==='coins').length * 2;
+  if (coralBonus > 0) {
+    state.coins += coralBonus;
+    state.stats.totalEarned += coralBonus;
+  }
+}, 30000);
+
+// ===================== DAY COUNTER =====================
+setInterval(() => {
+  state.dayCount++;
+  log(`📅 Día ${state.dayCount} de tu pecera.`, '');
+  notify(`📅 ¡Día ${state.dayCount}!`, '#88aaff');
+  // Bonus de supervivencia
+  const bonus = state.fish.length * 2;
+  state.coins += bonus;
+  state.stats.totalEarned += bonus;
+  if (bonus > 0) log(`🌅 Bonus diario: +${bonus}🪙`, 'log-trophy');
+  checkTrophies();
+}, 60000); // 1 minute = 1 day
+
+// ===================== RANDOM EVENTS =====================
+setInterval(() => {
+  if (state.fish.length === 0) return;
+  const events = [
+    () => { state.coins += 25; notify('🎰 ¡Bonus! +25🪙', '#ffd700'); log('🎰 ¡Bonus de monedas!'); },
+    () => { state.clean = Math.max(0, state.clean - 18); notify('💩 ¡Los peces ensuciaron!', '#aaaa00'); log('💩 La pecera se ensució'); },
+    () => {
+      const f = state.fish[rand(0, state.fish.length-1)];
+      if(f && !f.predator){ f.hunger = Math.max(0, f.hunger - 25); notify(`${f.emoji} ${f.name} tiene mucha hambre!`, '#ff8800'); }
+    },
+    () => {
+      // Earthquake stirs fish!
+      for (let f of state.fish) {
+        f.vx = (Math.random()-0.5) * f.speed * 4;
+        f.vy = (Math.random()-0.5) * f.speed * 4;
+      }
+      notify('🌊 ¡Corriente de agua!', '#4488ff');
+      log('🌊 Corriente fuerte agitó la pecera');
+      for (let i = 0; i < 30; i++) spawnBubble(rand(0,W), rand(0,H));
+    },
+    () => {
+      // Rare bonus
+      if (Math.random() < 0.3) {
+        state.coins += 60;
+        notify('💎 ¡Tesoro marino! +60🪙', '#00ffff');
+        log('💎 ¡Tesoro marino encontrado!', 'log-trophy');
+      }
+    },
+  ];
+  events[rand(0, events.length-1)]();
+}, 25000);
+
+// ===================== PREDATOR HUNGER PANIC =====================
+setInterval(() => {
+  for (let f of state.fish) {
+    if (f.predator && f.hunger < 20) {
+      // Hunt more aggressively
+      f.huntTimer = 0;
+      notify(`⚠️ ${f.emoji} ${f.name} tiene HAMBRE EXTREMA!`, '#ff0000');
+      log(`⚠️ ${f.name} hambriento - peligro máximo!`, 'log-danger');
+    }
+  }
+}, 15000);
+
+// ===================== CLOSE MODALS =====================
+['shopModal','coralModal','trophyModal'].forEach(id => {
+  document.getElementById(id).addEventListener('click', (e) => {
+    if (e.target === document.getElementById(id)) {
+      document.getElementById(id).classList.remove('open');
+    }
+  });
+});
+
+// ===================== UTILS =====================
+function rand(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+// ===================== STARTER =====================
+setTimeout(() => {
+  const starter = FISH_CATALOG.find(f => f.id === 'goldfish');
+  const f = new Fish(starter);
+  f.x = W / 2; f.y = H / 2;
+  state.fish.push(f);
+  state.stats.totalBought++;
+  // Starter coral
+  state.corals.push({
+    type: 'coral_red', emoji: '🪸', name: 'Coral Rojo',
+    x: W * 0.35, bonus: 'coins', bonusAmt: 2, size: 30, id: 0,
+  });
+  log('🐟 Pez Dorado de bienvenida añadido', 'log-birth');
+  log('🪸 Coral Rojo de bienvenida colocado', 'log-birth');
+  notify('🐟 ¡Bienvenido a AquaBit v2.0! 🌊', '#00ff88');
+  awardCoins('common');
+  checkTrophies();
+}, 500);
+
+log('🎮 ¡AquaBit v2.0 iniciado! Bienvenido');
+log('🦈 NUEVO: Depredadores cazan peces presas');
+log('🪸 NUEVO: Corales con poderes especiales');
+log('🏆 NUEVO: 16 trofeos para desbloquear');
+log('💀 NUEVO: Peces muertos flotan en superficie');
+log('📅 NUEVO: Sistema de días con bonus diario');
+</script>
+</body>
+</html>
